@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  # Servicio de la Base de Datos
+  db:
+    image: postgres:15
+    container_name: dental_db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: tavoadmin
+      POSTGRES_PASSWORD: Ogremagic15.
+      POSTGRES_DB: dental_api
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+
+  # Servicio de la API (NestJS)
+  api:
+    build: .
+    container_name: dental_api
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: npm run start:dev
+
+volumes:
+  postgres_data:
