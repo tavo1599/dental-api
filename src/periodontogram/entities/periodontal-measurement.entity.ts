@@ -1,40 +1,42 @@
 import { Patient } from '../../patients/entities/patient.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
-// Asegura que solo haya un registro periodontal por diente y por paciente
-@Unique(['patient', 'toothNumber'])
+// Enum para definir las 6 ubicaciones de medición por diente
+export enum SiteLocation {
+  MESIOBUCCAL = 'mesiobuccal',
+  BUCCAL = 'buccal',
+  DISTOBUCCAL = 'distobuccal',
+  MESIOLINGUAL = 'mesiolingual',
+  LINGUAL = 'lingual',
+  DISTOLINGUAL = 'distolingual',
+}
+
 @Entity({ name: 'periodontal_measurements' })
 export class PeriodontalMeasurement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'date', default: () => 'CURRENT_DATE' })
+  date: Date; // Fecha en que se tomó la medición
+
   @Column()
   toothNumber: number;
 
-  // Profundidad de la bolsa (6 mediciones por diente)
-  @Column({ type: 'smallint', nullable: true })
-  vestibularDistal?: number;
-  @Column({ type: 'smallint', nullable: true })
-  vestibularMedial?: number;
-  @Column({ type: 'smallint', nullable: true })
-  vestibularMesial?: number;
-  @Column({ type: 'smallint', nullable: true })
-  lingualDistal?: number;
-  @Column({ type: 'smallint', nullable: true })
-  lingualMedial?: number;
-  @Column({ type: 'smallint', nullable: true })
-  lingualMesial?: number;
+  @Column({ type: 'enum', enum: SiteLocation })
+  site: SiteLocation; // Una de las 6 ubicaciones
 
-  // Otros indicadores
-  @Column({ default: false })
-  bleeding: boolean; // Sangrado al sondaje
+  @Column({ type: 'int', nullable: true })
+  probingDepth: number | null; // Profundidad de Sondaje (mm)
+
+  @Column({ type: 'int', nullable: true })
+  gingivalMargin: number | null; // Margen Gingival (mm)
 
   @Column({ default: false })
-  suppuration: boolean; // Supuración
+  bleedingOnProbing: boolean; // Sangrado al Sondaje
 
-  @Column({ type: 'smallint', default: 0 })
-  mobility: number; // Grado de movilidad (0, 1, 2, 3)
+  @Column({ default: false })
+  suppuration: boolean; // Supuración (Pus)
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
   patient: Patient;

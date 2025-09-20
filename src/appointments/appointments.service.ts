@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { Appointment, AppointmentStatus } from './entities/appointment.entity';
@@ -7,9 +7,12 @@ import { Patient } from '../patients/entities/patient.entity';
 import { User } from '../users/entities/user.entity';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentTimeDto } from './dto/update-appointment-time.dto';
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
@@ -17,6 +20,7 @@ export class AppointmentsService {
     private readonly patientRepository: Repository<Patient>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly googleCalendarService: GoogleCalendarService,
   ) {}
 
   async create(createDto: CreateAppointmentDto, tenantId: string) {
@@ -28,7 +32,6 @@ export class AppointmentsService {
     const doctor = await this.userRepository.findOneBy({ id: doctorId, tenant: { id: tenantId } });
     if (!doctor) throw new UnauthorizedException('El doctor seleccionado no es válido para esta clínica.');
 
-    // Al crear, pasamos solo los IDs de las relaciones para evitar errores
     const newAppointment = this.appointmentRepository.create({
       startTime,
       endTime,
@@ -38,20 +41,39 @@ export class AppointmentsService {
       tenant: { id: tenantId },
     });
 
-    return this.appointmentRepository.save(newAppointment);
+    const savedAppointment = await this.appointmentRepository.save(newAppointment);
+
+    // Buscamos la cita completa para tener los datos del paciente y doctor
+    const fullAppointment = await this.appointmentRepository.findOne({
+      where: { id: savedAppointment.id },
+      relations: ['patient', 'doctor'],
+    });
+
+    // Llamamos al servicio de Google Calendar de forma segura
+    try {
+      if(fullAppointment) {
+        this.googleCalendarService.createEvent(tenantId, fullAppointment);
+      }
+    } catch (error) {
+      this.logger.error('Falló la creación del evento en Google Calendar', error);
+    }
+
+    return savedAppointment;
   }
 
   async findAll(tenantId: string) {
     return this.appointmentRepository.find({
       where: { tenant: { id: tenantId } },
-      relations: ['patient', 'doctor', 'doctor.tenant'], // La clave es 'doctor.tenant'
+      relations: ['patient', 'doctor', 'doctor.tenant'],
       order: { startTime: 'ASC' },
     });
   }
 
   async findAllForPatient(patientId: string, tenantId: string) {
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
-    if (!patient) throw new NotFoundException(`Patient with ID "${patientId}" not found in this tenant.`);
+    if (!patient) {
+      throw new NotFoundException(`Patient with ID "${patientId}" not found in this tenant.`);
+    }
 
     return this.appointmentRepository.find({
       where: {
@@ -125,6 +147,10 @@ export class AppointmentsService {
     appointment.startTime = newStartTime;
     appointment.endTime = newEndTime;
 
-    return this.appointmentRepository.save(appointment);
+    const savedAppointment = await this.appointmentRepository.save(appointment);
+    
+    // Aquí también podríamos añadir la lógica para actualizar el evento en Google Calendar
+    
+    return savedAppointment;
   }
 }

@@ -13,37 +13,36 @@ export class ReportsService {
     private readonly expenseRepository: Repository<Expense>,
   ) {}
 
-  async getFinancialSummary(startDate: Date, endDate: Date, tenantId: string) {
-    // 1. Busca todos los pagos en el rango de fechas para la clínica
+  async getFinancialReport(startDate: Date, endDate: Date, tenantId: string) {
     const payments = await this.paymentRepository.find({
       where: {
         tenant: { id: tenantId },
         paymentDate: Between(startDate, endDate),
       },
+      relations: ['budget', 'budget.patient'], // Incluimos info del paciente
+      order: { paymentDate: 'ASC' },
     });
 
-    // 2. Busca todos los gastos en el rango de fechas para la clínica
     const expenses = await this.expenseRepository.find({
       where: {
         tenant: { id: tenantId },
         date: Between(startDate, endDate),
       },
+      order: { date: 'ASC' },
     });
 
-    // 3. Calcula los totales
-    const totalIncome = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
-    const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    const balance = totalIncome - totalExpenses;
+    const totalIncome = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const netProfit = totalIncome - totalExpenses;
 
-    // 4. Devuelve el resumen
     return {
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-      totalIncome,
-      totalExpenses,
-      balance,
-      totalPayments: payments.length,
-      totalExpensesCount: expenses.length,
+      payments,
+      expenses,
+      summary: {
+        totalIncome,
+        totalExpenses,
+        netProfit,
+      },
     };
   }
 }

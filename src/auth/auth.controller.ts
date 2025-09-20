@@ -37,6 +37,7 @@ export class AuthController {
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
   getProfile(@Req() req) {
-    return req.user;
+    // Llamamos a la nueva función para obtener datos frescos de la BD
+    return this.authService.getFullUserProfile(req.user.sub);
   }
 }

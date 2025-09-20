@@ -32,6 +32,17 @@ export class Tenant {
   @Column({ type: 'date', nullable: true })
   nextPaymentDate: Date | null;
 
+  // --- CAMPOS PARA LA INTEGRACIÓN CON GOOGLE ---
+  @Column({ type: 'text', nullable: true })
+  googleAccessToken: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  googleRefreshToken: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  googleCalendarId: string | null; // El ID del calendario a usar (ej. 'primary')
+  // --- FIN ---
+
   @OneToMany(() => User, user => user.tenant)
   users: User[];
 

@@ -164,4 +164,15 @@ generateTokenForUser(user: User) {
 
     return { message: 'Contraseña actualizada con éxito.' };
   }
+
+  async getFullUserProfile(userId: string) {
+    // Busca el usuario en la base de datos y carga su relación con tenant
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['tenant'],
+    });
+    // No enviamos la contraseña
+    delete user.password_hash;
+    return user;
+  }
 }

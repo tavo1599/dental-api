@@ -33,6 +33,13 @@ export class PlannedTreatmentsService {
     });
   }
 
+  async clearAllForPatient(patientId: string, tenantId: string) {
+  return this.plannedTreatmentRepository.delete({
+    patient: { id: patientId },
+    tenant: { id: tenantId },
+  });
+}
+
   // Elimina un tratamiento planeado
   remove(id: string) {
     return this.plannedTreatmentRepository.delete(id);

@@ -22,4 +22,9 @@ export class PlannedTreatmentsController {
   remove(@Param('id') id: string) {
     return this.plannedTreatmentsService.remove(id);
   }
+
+  @Delete('patient/:patientId')
+clearAllForPatient(@Param('patientId') patientId: string, @Req() req) {
+  return this.plannedTreatmentsService.clearAllForPatient(patientId, req.user.tenantId);
+}
 }

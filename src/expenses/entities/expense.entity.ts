@@ -11,12 +11,12 @@ export enum ExpenseCategory {
 }
 
 @Entity({ name: 'expenses' })
-export class Expense {
+export class Expense { // <-- Asegúrate de que 'export' esté aquí
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'date' })
-  date: Date; // <-- ESTA ES LA LÍNEA CORREGIDA
+  date: Date;
 
   @Column()
   description: string;

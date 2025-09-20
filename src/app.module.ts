@@ -50,6 +50,7 @@ import { PlannedTreatment } from './planned-treatments/entities/planned-treatmen
 import { PlannedTreatmentsModule } from './planned-treatments/planned-treatments.module';
 import { ConsentTemplate } from './consent-templates/entities/consent-template.entity';
 import { ConsentTemplatesModule } from './consent-templates/consent-templates.module';
+import { GoogleCalendarModule } from './google-calendar/google-calendar.module';
 
 
 @Module({
@@ -105,6 +106,7 @@ import { ConsentTemplatesModule } from './consent-templates/consent-templates.mo
     Cie10Module,
     PlannedTreatmentsModule,
     ConsentTemplatesModule,
+    GoogleCalendarModule,
 
   ],
   controllers: [AppController],
