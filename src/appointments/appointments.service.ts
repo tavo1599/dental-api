@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { Appointment, AppointmentStatus } from './entities/appointment.entity';
@@ -11,8 +11,6 @@ import { GoogleCalendarService } from '../google-calendar/google-calendar.servic
 
 @Injectable()
 export class AppointmentsService {
-  private readonly logger = new Logger(AppointmentsService.name);
-
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
@@ -27,10 +25,14 @@ export class AppointmentsService {
     const { patientId, doctorId, startTime, endTime, notes } = createDto;
 
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
-    if (!patient) throw new UnauthorizedException('El paciente no pertenece a esta clínica.');
+    if (!patient) {
+      throw new UnauthorizedException('El paciente no pertenece a esta clínica.');
+    }
     
     const doctor = await this.userRepository.findOneBy({ id: doctorId, tenant: { id: tenantId } });
-    if (!doctor) throw new UnauthorizedException('El doctor seleccionado no es válido para esta clínica.');
+    if (!doctor) {
+      throw new UnauthorizedException('El doctor seleccionado no es válido para esta clínica.');
+    }
 
     const newAppointment = this.appointmentRepository.create({
       startTime,
@@ -46,19 +48,17 @@ export class AppointmentsService {
     // Buscamos la cita completa para tener los datos del paciente y doctor
     const fullAppointment = await this.appointmentRepository.findOne({
       where: { id: savedAppointment.id },
-      relations: ['patient', 'doctor'],
+      relations: ['patient', 'doctor', 'doctor.tenant'],
     });
 
     // Llamamos al servicio de Google Calendar de forma segura
-    try {
-      if(fullAppointment) {
-        this.googleCalendarService.createEvent(tenantId, fullAppointment);
-      }
-    } catch (error) {
-      this.logger.error('Falló la creación del evento en Google Calendar', error);
+    if (fullAppointment) {
+      this.googleCalendarService.createEvent(tenantId, fullAppointment).catch(err => {
+        console.error('Falló la creación del evento en Google Calendar', err);
+      });
     }
 
-    return savedAppointment;
+    return fullAppointment;
   }
 
   async findAll(tenantId: string) {
