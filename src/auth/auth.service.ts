@@ -34,6 +34,8 @@ export class AuthService {
       const newTenant = this.tenantRepository.create({
         name: clinicName,
         schema: clinicName.toLowerCase().replace(/\s+/g, '_'),
+        plan: 'profesional', // Plan por defecto
+        maxUsers: 10,         // Límite del plan profesional
       });
       await this.tenantRepository.save(newTenant);
 
@@ -175,4 +177,5 @@ generateTokenForUser(user: User) {
     delete user.password_hash;
     return user;
   }
+  
 }

@@ -12,6 +12,7 @@ import { Between } from 'typeorm';
 import { ConsentTemplate } from '../consent-templates/entities/consent-template.entity';
 import { CreateConsentTemplateDto } from '../consent-templates/dto/create-consent-template.dto';
 import { UpdateConsentTemplateDto } from '../consent-templates/dto/update-consent-template.dto';
+import { UpdatePlanDto } from './dto/update-plan.dto';
 
 @Injectable()
 export class SuperAdminService {
@@ -29,6 +30,7 @@ export class SuperAdminService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(ConsentTemplate)
     private readonly consentTemplateRepository: Repository<ConsentTemplate>,
+    
   ) {}
 
 async findAllTenants() {
@@ -153,6 +155,37 @@ async impersonate(userId: string) {
     if (result.affected === 0) {
       throw new NotFoundException(`Plantilla con ID "${id}" no encontrada.`);
     }
+  }
+
+  async updateTenantPlan(tenantId: string, dto: UpdatePlanDto) {
+    const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
+    if (!tenant) {
+      throw new NotFoundException(`Clínica con ID "${tenantId}" no encontrada.`);
+    }
+
+    tenant.plan = dto.plan;
+    tenant.maxUsers = dto.maxUsers;
+
+    return this.tenantRepository.save(tenant);
+  }
+
+  async renewSubscription(tenantId: string) {
+    const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
+    if (!tenant) {
+      throw new NotFoundException(`Clínica con ID "${tenantId}" no encontrada.`);
+    }
+    
+    // 1. Tomamos la fecha de pago actual como base.
+    // Si por alguna razón no existe, usamos la fecha de hoy.
+    const baseDate = tenant.nextPaymentDate ? new Date(tenant.nextPaymentDate) : new Date();
+
+    // 2. Calculamos la nueva fecha de pago (un mes a partir de la fecha base).
+    baseDate.setMonth(baseDate.getMonth() + 1);
+    
+    tenant.nextPaymentDate = baseDate;
+    tenant.status = TenantStatus.ACTIVE; // La reactivamos si estaba suspendida
+
+    return this.tenantRepository.save(tenant);
   }
 
 }

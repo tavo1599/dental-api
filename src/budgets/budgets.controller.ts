@@ -8,9 +8,10 @@ import { CreateBudgetDto } from './dto/create-budget.dto';
 export class BudgetsController {
   constructor(private readonly budgetsService: BudgetsService) {}
 
-  @Post() // <-- Ahora la ruta es POST /budgets
+  @Post()
   create(@Body() createBudgetDto: CreateBudgetDto, @Req() req) {
-    return this.budgetsService.create(createBudgetDto, req.user.tenantId);
+    const { patientId } = createBudgetDto;
+    return this.budgetsService.create(createBudgetDto, patientId, req.user.tenantId);
   }
 
   @Get('patients/:patientId/budgets')

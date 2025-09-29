@@ -1,61 +1,72 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Patient } from '../patients/entities/patient.entity';
-import { UpdateOdontogramDto } from './dto/update-odontogram.dto';
 import { ToothSurfaceState } from './entities/tooth-surface-state.entity';
+import { Tooth } from './entities/tooth.entity'; // Importa la nueva entidad
+import { UpdateOdontogramDto } from './dto/update-odontogram.dto';
 
 @Injectable()
 export class OdontogramService {
   constructor(
     @InjectRepository(ToothSurfaceState)
-    private readonly surfaceStateRepository: Repository<ToothSurfaceState>,
-    @InjectRepository(Patient)
-    private readonly patientRepository: Repository<Patient>,
+    private readonly surfaceRepository: Repository<ToothSurfaceState>,
+    @InjectRepository(Tooth)
+    private readonly toothRepository: Repository<Tooth>,
   ) {}
 
-  private async verifyPatientTenant(patientId: string, tenantId: string) {
-    const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
-    if (!patient) {
-      throw new UnauthorizedException('Access to patient odontogram denied');
-    }
-  }
-
+  // Ahora devuelve los datos de ambas tablas
   async getOdontogram(patientId: string, tenantId: string) {
-    await this.verifyPatientTenant(patientId, tenantId);
-    return this.surfaceStateRepository.find({
-      where: {
-        patient: { id: patientId },
-        tenant: { id: tenantId },
-      },
+    const wholeTeeth = await this.toothRepository.find({
+      where: { patient: { id: patientId }, tenant: { id: tenantId } },
     });
+    const surfaces = await this.surfaceRepository.find({
+      where: { patient: { id: patientId }, tenant: { id: tenantId } },
+    });
+    return { wholeTeeth, surfaces };
   }
 
   async updateOdontogram(dto: UpdateOdontogramDto, patientId: string, tenantId: string) {
-    await this.verifyPatientTenant(patientId, tenantId);
-
     for (const update of dto.updates) {
-      // Busca si ya existe un estado para esta superficie
-      let surfaceState = await this.surfaceStateRepository.findOneBy({
-        patient: { id: patientId },
-        toothNumber: update.toothNumber,
-        surface: update.surface,
-      });
+      const { toothNumber, status, surface } = update;
 
-      if (surfaceState) {
-        // Si existe, lo actualiza
-        surfaceState.status = update.status;
-      } else {
-        // Si no existe, lo crea
-        surfaceState = this.surfaceStateRepository.create({
-          ...update,
-          patient: { id: patientId },
-          tenant: { id: tenantId },
-        });
+      if (surface) { // Actualización de superficie
+        let state = await this.surfaceRepository.findOneBy({ patient: { id: patientId }, toothNumber, surface });
+        if (state) {
+          state.status = status;
+        } else {
+          state = this.surfaceRepository.create({
+            toothNumber, surface, status,
+            patient: { id: patientId }, tenant: { id: tenantId },
+          });
+        }
+        await this.surfaceRepository.save(state);
+      } else { // Actualización de diente completo
+        let tooth = await this.toothRepository.findOneBy({ patient: { id: patientId }, toothNumber });
+        if (tooth) {
+          tooth.status = status;
+        } else {
+          tooth = this.toothRepository.create({
+            toothNumber, status,
+            patient: { id: patientId }, tenant: { id: tenantId },
+          });
+        }
+        await this.toothRepository.save(tooth);
+
+        // --- LÓGICA AÑADIDA ---
+        // Aseguramos que también exista un registro en la superficie oclusal
+        let oclusalState = await this.surfaceRepository.findOneBy({ patient: { id: patientId }, toothNumber, surface: 'occlusal' });
+        if (oclusalState) {
+          oclusalState.status = status;
+        } else {
+          oclusalState = this.surfaceRepository.create({
+            toothNumber, surface: 'occlusal', status,
+            patient: { id: patientId }, tenant: { id: tenantId },
+          });
+        }
+        await this.surfaceRepository.save(oclusalState);
+        // --- FIN ---
       }
-      await this.surfaceStateRepository.save(surfaceState);
     }
-
     return this.getOdontogram(patientId, tenantId);
   }
 }

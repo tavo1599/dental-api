@@ -19,6 +19,14 @@ export class Tenant {
   @Column({ unique: true })
   schema: string;
 
+    // --- CAMPOS PARA PLANES DE SUSCRIPCIÓN ---
+  @Column({ default: 'profesional' })
+  plan: string; // ej. 'basico', 'profesional', 'premium'
+
+  @Column({ type: 'int', default: 10 })
+  maxUsers: number; // Límite de usuarios según el plan
+  // --- FIN ---
+
   @Column({
     type: 'enum',
     enum: TenantStatus,

@@ -16,47 +16,42 @@ export class BudgetsService {
     private readonly patientRepository: Repository<Patient>,
     @InjectRepository(Treatment)
     private readonly treatmentRepository: Repository<Treatment>,
+    @InjectRepository(BudgetItem)
+    private readonly budgetItemRepository: Repository<BudgetItem>,
   ) {}
 
-  async create(createDto: CreateBudgetDto, tenantId: string) {
-    const { patientId, items, doctorId } = createDto;
+async create(createBudgetDto: CreateBudgetDto, patientId: string, tenantId: string) {
+    const patient = await this.patientRepository.findOneBy({ id: patientId });
+    if (!patient) throw new NotFoundException('Paciente no encontrado');
 
-    // 1. Verificar que el paciente pertenece al tenant
-    const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
-    if (!patient) throw new UnauthorizedException('Patient access denied');
-
-    // 2. Obtener los IDs de los tratamientos y verificar que todos existan y pertenezcan al tenant
-    const treatmentIds = items.map(item => item.treatmentId);
-    const treatments = await this.treatmentRepository.find({
-      where: { id: In(treatmentIds), tenant: { id: tenantId } },
-    });
-    if (treatments.length !== treatmentIds.length) {
-      throw new NotFoundException('One or more treatments not found');
-    }
-
-    // 3. Crear los items del presupuesto y calcular el total
     let totalAmount = 0;
-    const budgetItems = items.map(itemDto => {
-      const treatment = treatments.find(t => t.id === itemDto.treatmentId);
-      const item = new BudgetItem();
-      item.treatment = treatment;
-      item.quantity = itemDto.quantity;
-      item.priceAtTimeOfBudget = treatment.price;
-      totalAmount += item.priceAtTimeOfBudget * item.quantity;
-      return item;
-    });
+    const budgetItems: BudgetItem[] = [];
 
-    // 4. Crear el presupuesto principal
+    for (const itemDto of createBudgetDto.items) {
+      const treatment = await this.treatmentRepository.findOneBy({ id: itemDto.treatmentId });
+      if (treatment) {
+        const itemTotal = treatment.price * itemDto.quantity;
+        totalAmount += itemTotal;
+        
+        const newBudgetItem = this.budgetItemRepository.create({
+          treatment,
+          quantity: itemDto.quantity,
+          priceAtTimeOfBudget: treatment.price,
+        });
+        budgetItems.push(newBudgetItem);
+      }
+    }
+    
     const newBudget = this.budgetRepository.create({
       patient,
       tenant: { id: tenantId },
-      doctor: doctorId ? { id: doctorId } : undefined,
       totalAmount,
-      items: budgetItems, // TypeORM guardará los items gracias a `cascade: true`
+      items: budgetItems,
     });
 
     return this.budgetRepository.save(newBudget);
   }
+
 
   async findAllForPatient(patientId: string, tenantId: string) {
     // Verificar que el paciente pertenezca al tenant

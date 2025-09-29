@@ -6,6 +6,7 @@ import { RegisterAuthDto } from '../auth/dto/register-auth.dto';
 import { TenantStatus } from '../tenants/entities/tenant.entity';
 import { CreateConsentTemplateDto } from '../consent-templates/dto/create-consent-template.dto';
 import { UpdateConsentTemplateDto } from '../consent-templates/dto/update-consent-template.dto';
+import { UpdatePlanDto } from './dto/update-plan.dto';
 
 @UseGuards(AuthGuard('jwt'), SuperAdminGuard) // Protege todo el controlador
 @Controller('super-admin')
@@ -75,4 +76,14 @@ export class SuperAdminController {
   removeConsentTemplate(@Param('id') id: string) {
     return this.superAdminService.removeConsentTemplate(id);
   }
+
+  @Patch('tenants/:id/plan')
+  updateTenantPlan(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
+    return this.superAdminService.updateTenantPlan(id, dto);
+  }
+
+  @Patch('tenants/:id/renew')
+  renewSubscription(@Param('id') id: string) {
+  return this.superAdminService.renewSubscription(id);
+}
 }

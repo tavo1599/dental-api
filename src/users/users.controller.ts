@@ -3,32 +3,39 @@ import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
-import { Roles } from '../auth/decorators/roles.decorator'; // 1. Importa el decorador
-import { RolesGuard } from '../auth/guards/roles.guard';   // 2. Importa la guarda
-import { UserRole } from './entities/user.entity';         // 3. Importa los roles
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from './entities/user.entity';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
-@UseGuards(AuthGuard('jwt')) // Todas las rutas requieren un token válido
+@UseGuards(AuthGuard('jwt'))
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // --- Endpoint para CREAR usuario (solo para Admins) ---
-  @Post()
-  @Roles(UserRole.ADMIN) // 4. Especifica que solo el rol ADMIN tiene acceso
-  @UseGuards(RolesGuard)   // 5. Aplica la guarda de roles
-  create(@Body() createUserDto: CreateUserDto, @Req() req) {
-    return this.usersService.create(createUserDto, req.user.tenantId);
-  }
+  // --- RUTAS ORDENADAS CORRECTAMENTE ---
 
-  // --- Endpoint para ACTUALIZAR usuario (solo para Admins) ---
+  // 1. La ruta específica va primero
+  @Patch('change-password')
+  changePassword(@Req() req, @Body() changePasswordDto: ChangePasswordDto) {
+    return this.usersService.changePassword(req.user.sub, changePasswordDto);
+  }
+  
+  // 2. La ruta genérica va después
   @Patch(':id')
-  @Roles(UserRole.ADMIN) // Solo el admin puede cambiar datos de otros
+  @Roles(UserRole.ADMIN)
   @UseGuards(RolesGuard)
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Req() req) {
     return this.usersService.update(id, updateUserDto, req.user.tenantId);
   }
   
-  // --- Endpoints para LEER datos (disponibles para todos los usuarios logueados) ---
+  @Post()
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  create(@Body() createUserDto: CreateUserDto, @Req() req) {
+    return this.usersService.create(createUserDto, req.user.tenantId);
+  }
+
   @Get()
   findAll(@Req() req) {
     return this.usersService.findAll(req.user.tenantId);

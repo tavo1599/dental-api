@@ -1,26 +1,24 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, ValidateNested } from 'class-validator';
-import { ToothStatus, ToothSurface } from '../entities/tooth-surface-state.entity';
+import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ToothStatus } from '../../types/tooth-status.enum';
 
-// DTO para actualizar una sola superficie
-class UpdateToothSurfaceDto {
+class OdontogramUpdateItemDto {
   @IsNumber()
   @IsNotEmpty()
   toothNumber: number;
 
-  @IsEnum(ToothSurface)
-  @IsNotEmpty()
-  surface: ToothSurface;
-
   @IsEnum(ToothStatus)
   @IsNotEmpty()
   status: ToothStatus;
+
+  @IsString()
+  @IsOptional() // <-- La superficie es opcional
+  surface?: string;
 }
 
-// El body de la petición será un array de estos objetos
 export class UpdateOdontogramDto {
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => UpdateToothSurfaceDto)
-  updates: UpdateToothSurfaceDto[];
+  @Type(() => OdontogramUpdateItemDto)
+  updates: OdontogramUpdateItemDto[];
 }
