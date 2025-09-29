@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { Appointment, AppointmentStatus } from './entities/appointment.entity';
@@ -11,6 +11,8 @@ import { GoogleCalendarService } from '../google-calendar/google-calendar.servic
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
@@ -22,17 +24,16 @@ export class AppointmentsService {
   ) {}
 
   async create(createDto: CreateAppointmentDto, tenantId: string) {
-    const { patientId, doctorId, startTime, endTime, notes } = createDto;
+    const { patientId, doctorId, notes } = createDto;
+    
+    const startTime = new Date(`${createDto.startTime}-05:00`);
+    const endTime = new Date(`${createDto.endTime}-05:00`);
 
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
-    if (!patient) {
-      throw new UnauthorizedException('El paciente no pertenece a esta clínica.');
-    }
+    if (!patient) throw new UnauthorizedException('El paciente no pertenece a esta clínica.');
     
     const doctor = await this.userRepository.findOneBy({ id: doctorId, tenant: { id: tenantId } });
-    if (!doctor) {
-      throw new UnauthorizedException('El doctor seleccionado no es válido para esta clínica.');
-    }
+    if (!doctor) throw new UnauthorizedException('El doctor seleccionado no es válido para esta clínica.');
 
     const newAppointment = this.appointmentRepository.create({
       startTime,
@@ -44,17 +45,15 @@ export class AppointmentsService {
     });
 
     const savedAppointment = await this.appointmentRepository.save(newAppointment);
-
-    // Buscamos la cita completa para tener los datos del paciente y doctor
+    
     const fullAppointment = await this.appointmentRepository.findOne({
       where: { id: savedAppointment.id },
       relations: ['patient', 'doctor', 'doctor.tenant'],
     });
 
-    // Llamamos al servicio de Google Calendar de forma segura
     if (fullAppointment) {
       this.googleCalendarService.createEvent(tenantId, fullAppointment).catch(err => {
-        console.error('Falló la creación del evento en Google Calendar', err);
+        this.logger.error('Falló la creación del evento en Google Calendar', err);
       });
     }
 
@@ -68,12 +67,10 @@ export class AppointmentsService {
       order: { startTime: 'ASC' },
     });
   }
-
+  
   async findAllForPatient(patientId: string, tenantId: string) {
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
-    if (!patient) {
-      throw new NotFoundException(`Patient with ID "${patientId}" not found in this tenant.`);
-    }
+    if (!patient) throw new NotFoundException(`Patient with ID "${patientId}" not found in this tenant.`);
 
     return this.appointmentRepository.find({
       where: {
@@ -113,11 +110,7 @@ export class AppointmentsService {
       id: appointmentId,
       tenant: { id: tenantId },
     });
-
-    if (!appointment) {
-      throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
-    }
-
+    if (!appointment) throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
     appointment.status = updateDto.status;
     return this.appointmentRepository.save(appointment);
   }
@@ -130,27 +123,20 @@ export class AppointmentsService {
     const appointment = await this.appointmentRepository.findOne({
       where: { id: appointmentId, tenant: { id: tenantId } }
     });
+    if (!appointment) throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
 
-    if (!appointment) {
-      throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
+    const newStartTime = new Date(`${dto.startTime}-05:00`);
+    let newEndTime: Date;
+    if (dto.endTime) {
+      newEndTime = new Date(`${dto.endTime}-05:00`);
+    } else {
+      const originalStartTime = new Date(appointment.startTime);
+      const originalEndTime = new Date(appointment.endTime);
+      const duration = originalEndTime.getTime() - originalStartTime.getTime();
+      newEndTime = new Date(newStartTime.getTime() + duration);
     }
-
-    const originalStartTime = new Date(appointment.startTime);
-    const originalEndTime = new Date(appointment.endTime);
-    const duration = originalEndTime.getTime() - originalStartTime.getTime();
-
-    const newStartTime = new Date(dto.startTime);
-    const newEndTime = dto.endTime 
-      ? new Date(dto.endTime) 
-      : new Date(newStartTime.getTime() + duration);
-      
     appointment.startTime = newStartTime;
     appointment.endTime = newEndTime;
-
-    const savedAppointment = await this.appointmentRepository.save(appointment);
-    
-    // Aquí también podríamos añadir la lógica para actualizar el evento en Google Calendar
-    
-    return savedAppointment;
+    return this.appointmentRepository.save(appointment);
   }
 }

@@ -16,11 +16,11 @@ export class Appointment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'timestamp' })
-  startTime: Date; // Fecha y hora de inicio
+  @Column({ type: 'timestamp with time zone' })
+  startTime: Date;
 
-  @Column({ type: 'timestamp' })
-  endTime: Date; // Fecha y hora de fin
+  @Column({ type: 'timestamp with time zone' })
+  endTime: Date;
 
   @Column({
     type: 'enum',
