@@ -18,10 +18,13 @@ export class GoogleCalendarService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    // Leemos la URL base desde las variables de entorno
+    const redirectUri = `${this.configService.get('API_BASE_URL')}/google-calendar/auth/callback`;
+    
     this.oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_CLIENT_ID'),
       this.configService.get('GOOGLE_CLIENT_SECRET'),
-      'http://localhost:3000/google-calendar/auth/callback',
+      redirectUri, // Usamos la URL dinámica
     );
   }
 
