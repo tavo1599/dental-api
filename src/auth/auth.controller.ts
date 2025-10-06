@@ -1,4 +1,5 @@
-import { Body, Controller, Post, Get, Req, UseGuards } from '@nestjs/common';
+import { Patch, Body, Controller, Post, Get, Req, UseGuards } from '@nestjs/common';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthService } from './auth.service';
 import { RegisterAuthDto } from './dto/register-auth.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
@@ -40,4 +41,10 @@ export class AuthController {
     // Llamamos a la nueva función para obtener datos frescos de la BD
     return this.authService.getFullUserProfile(req.user.sub);
   }
+
+  @Patch('profile')
+@UseGuards(AuthGuard('jwt'))
+updateProfile(@Req() req, @Body() dto: UpdateProfileDto) {
+  return this.authService.updateProfile(req.user.sub, dto);
+}
 }

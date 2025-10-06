@@ -11,6 +11,8 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { RegisterAuthDto } from './dto/register-auth.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { NotFoundException } from '@nestjs/common';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
@@ -177,5 +179,22 @@ generateTokenForUser(user: User) {
     delete user.password_hash;
     return user;
   }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+  const user = await this.userRepository.findOneBy({ id: userId });
+  if (!user) {
+    throw new NotFoundException('Usuario no encontrado');
+  }
+
+  // Actualiza solo los campos que vienen en el DTO
+  if (dto.fullName) user.fullName = dto.fullName;
+  if (dto.phone) user.phone = dto.phone;
+
+  await this.userRepository.save(user);
+
+  // No devolvemos la contraseña
+  delete user.password_hash;
+  return user;
+}
   
 }
