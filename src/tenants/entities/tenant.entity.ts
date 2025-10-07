@@ -51,6 +51,9 @@ export class Tenant {
   googleCalendarId: string | null; // El ID del calendario a usar (ej. 'primary')
   // --- FIN ---
 
+  @Column({ type: 'varchar', nullable: true })
+  logoUrl: string | null;
+
   @OneToMany(() => User, user => user.tenant)
   users: User[];
 

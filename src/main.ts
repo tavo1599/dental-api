@@ -1,18 +1,26 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { SocketIoAdapter } from './socket-io.adapter'; // <-- 1. Importa nuestro nuevo adaptador
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+import { SocketIoAdapter } from './socket-io.adapter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // --- 2. Usa nuestro adaptador personalizado ---
   app.useWebSocketAdapter(new SocketIoAdapter(app));
 
   app.enableCors();
 
+  // --- CONFIGURACIÓN DE VALIDACIÓN SIMPLIFICADA ---
+  // Usamos el ValidationPipe sin las opciones estrictas
   app.useGlobalPipes(new ValidationPipe());
-  await app.listen(3000);
+  // --- FIN DE LA CORRECIÓN ---
+
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/',
+  });
+
+  await app.listen(process.env.PORT || 3000);
 }
 bootstrap();
