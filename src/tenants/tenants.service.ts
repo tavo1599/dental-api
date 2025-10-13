@@ -14,7 +14,7 @@ export class TenantsService {
     private tenantRepository: Repository<Tenant>,
   ) {}
 
-async updateLogo(tenantId: string, file: Express.Multer.File) {
+  async updateLogo(tenantId: string, file: Express.Multer.File) {
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
     if (!tenant) {
       await fs.unlink(file.path);
@@ -38,8 +38,9 @@ async updateLogo(tenantId: string, file: Express.Multer.File) {
       
       if (oldLogoUrl) {
         // --- CORRECCIÓN CLAVE AQUÍ ---
-        // Construimos la ruta absoluta desde la raíz del proyecto
-        const oldLogoFilePath = path.join(process.cwd(), 'uploads', oldLogoUrl);
+        // Quitamos la barra inicial de la URL guardada
+        const oldLogoRelativePath = oldLogoUrl.startsWith('/') ? oldLogoUrl.substring(1) : oldLogoUrl;
+        const oldLogoFilePath = path.join(process.cwd(), 'uploads', oldLogoRelativePath);
         
         try {
           await fs.unlink(oldLogoFilePath);
