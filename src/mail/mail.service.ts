@@ -8,19 +8,24 @@ export class MailService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    // Configura la clave de API de SendGrid al iniciar el servicio
     const apiKey = this.configService.get<string>('SENDGRID_API_KEY');
-    sgMail.setApiKey(apiKey);
+    if (apiKey) {
+      sgMail.setApiKey(apiKey);
+    } else {
+      console.warn('SENDGRID_API_KEY no está configurada. El envío de correos está deshabilitado.');
+    }
   }
 
   async sendPasswordResetEmail(user: User, token: string) {
-    const url = `http://localhost:5173/reset-password?token=${token}`;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const url = `${frontendUrl}/reset-password?token=${token}`;
+
     const fromEmail = this.configService.get<string>('SENDGRID_FROM_EMAIL');
 
     const msg = {
       to: user.email,
       from: fromEmail,
-      subject: 'Recuperación de Contraseña - DentalSoft',
+      subject: 'Recuperación de Contraseña - SonriAndes',
       html: `
         <p>Hola ${user.fullName},</p>
         <p>Has solicitado restablecer tu contraseña. Por favor, haz clic en el siguiente enlace para continuar:</p>
@@ -31,9 +36,9 @@ export class MailService implements OnModuleInit {
 
     try {
       await sgMail.send(msg);
-      console.log('Password reset email sent successfully');
+      console.log('Correo de recuperación de contraseña enviado con éxito.');
     } catch (error) {
-      console.error('Error sending email with SendGrid', error);
+      console.error('Error al enviar correo con SendGrid:', error.response?.body);
     }
   }
 }
