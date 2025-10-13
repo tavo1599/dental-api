@@ -26,7 +26,7 @@ export class GoogleCalendarService implements OnModuleInit {
     );
   }
   
-  // --- FUNCIÓN INTERNA PARA OBTENER UN CLIENTE AUTENTICADO ---
+  // --- FUNCIÓN INTERNA MEJORADA ---
   private async getAuthenticatedClient(tenant: Tenant) {
     if (!tenant.googleRefreshToken) {
       throw new Error('La clínica no tiene una cuenta de Google conectada.');
@@ -34,7 +34,7 @@ export class GoogleCalendarService implements OnModuleInit {
     this.oauth2Client.setCredentials({
       refresh_token: tenant.googleRefreshToken,
     });
-    // Forzamos la obtención de un nuevo access_token válido antes de usarlo
+    // Forzamos la obtención de un nuevo access_token
     await this.oauth2Client.refreshAccessToken(); 
     return this.oauth2Client;
   }
@@ -55,8 +55,6 @@ export class GoogleCalendarService implements OnModuleInit {
 
   async handleAuthCallback(code: string, tenantId: string) {
     const { tokens } = await this.oauth2Client.getToken(code);
-    this.oauth2Client.setCredentials(tokens);
-
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
     if (tenant) {
       tenant.googleAccessToken = tokens.access_token;
@@ -137,12 +135,7 @@ export class GoogleCalendarService implements OnModuleInit {
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
     if (tenant && tenant.googleRefreshToken) {
       try {
-        // Usamos una nueva instancia para revocar, por seguridad
-        const revokeClient = new google.auth.OAuth2(
-          this.configService.get('GOOGLE_CLIENT_ID'),
-          this.configService.get('GOOGLE_CLIENT_SECRET'),
-        );
-        await revokeClient.revokeToken(tenant.googleRefreshToken);
+        await this.oauth2Client.revokeToken(tenant.googleRefreshToken);
       } catch (error) {
         this.logger.warn('No se pudo revocar el token, probablemente ya era inválido.');
       }
