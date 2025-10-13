@@ -31,11 +31,14 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterAuthDto) {
-    const { clinicName, email, fullName, password, phone } = registerDto;
+    const { clinicName, clinicPhone, clinicEmail, clinicAddress, email, fullName, password, phone } = registerDto;
     try {
       const newTenant = this.tenantRepository.create({
         name: clinicName,
         schema: clinicName.toLowerCase().replace(/\s+/g, '_'),
+        phone: clinicPhone,   // <-- Añadido
+        email: clinicEmail,   // <-- Añadido
+        address: clinicAddress, // <-- Añadido
         plan: 'profesional', // Plan por defecto
         maxUsers: 10,         // Límite del plan profesional
       });

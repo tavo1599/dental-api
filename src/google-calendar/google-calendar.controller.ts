@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, Res, UseGuards, Delete } from '@nestjs/common';
 import { GoogleCalendarService } from './google-calendar.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
@@ -20,5 +20,17 @@ export class GoogleCalendarController {
   async authCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
     await this.googleCalendarService.handleAuthCallback(code, state);
     res.send('¡Autenticación completada! Puedes cerrar esta ventana.');
+  }
+
+  @Get('status')
+  @UseGuards(AuthGuard('jwt')) // Esta ruta SÍ necesita protección
+  getIntegrationStatus(@Req() req) {
+    return this.googleCalendarService.getIntegrationStatus(req.user.tenantId);
+  }
+
+  @Delete('integration')
+  @UseGuards(AuthGuard('jwt')) // Esta ruta SÍ necesita protección
+  unlink(@Req() req) {
+    return this.googleCalendarService.unlink(req.user.tenantId);
   }
 }

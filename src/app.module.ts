@@ -52,6 +52,7 @@ import { ConsentTemplate } from './consent-templates/entities/consent-template.e
 import { ConsentTemplatesModule } from './consent-templates/consent-templates.module';
 import { GoogleCalendarModule } from './google-calendar/google-calendar.module';
 import { Tooth } from './odontogram/entities/tooth.entity';
+import { MedicalHistory } from './patients/entities/medical-history.entity';
 
 
 @Module({
@@ -70,7 +71,7 @@ import { Tooth } from './odontogram/entities/tooth.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth],
+        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory],
         synchronize: true, // ¡Solo para desarrollo!
       }),
     }),

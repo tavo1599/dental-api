@@ -1,6 +1,7 @@
 // src/patients/entities/patient.entity.ts
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { MedicalHistory } from './medical-history.entity';
+import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
 export enum Gender {
   MALE = 'male',
@@ -59,10 +60,19 @@ export class Patient {
   @Column('text', { nullable: true })
   relevantMedicalHistory?: string;
 
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  category: string; // Ej: 'O', 'OI', 'I'
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  fileCode: string; // Ej: '00123'
+
   // LA CLAVE: Cada paciente pertenece a UN solo tenant (clínica).
   @ManyToOne(() => Tenant)
   tenant: Tenant;
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @OneToOne(() => MedicalHistory, medicalHistory => medicalHistory.patient, { cascade: true })
+  medicalHistory: MedicalHistory;
 }

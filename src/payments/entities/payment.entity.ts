@@ -5,6 +5,7 @@ import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } f
 
 export enum PaymentMethod {
   CASH = 'cash', // Efectivo
+  YAPE = 'yape',
   CARD = 'card', // Tarjeta
   TRANSFER = 'transfer', // Transferencia
   OTHER = 'other',

@@ -4,7 +4,8 @@ import { Repository } from 'typeorm';
 import { ConsentTemplate } from './entities/consent-template.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { User } from '../users/entities/user.entity';
-import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs/promises'; // Importa el sistema de archivos
+import * as path from 'path';
 
 @Injectable()
 export class ConsentTemplatesService {
@@ -13,7 +14,6 @@ export class ConsentTemplatesService {
     private readonly templateRepository: Repository<ConsentTemplate>,
     @InjectRepository(Patient)
     private readonly patientRepository: Repository<Patient>,
-    private readonly configService: ConfigService,
   ) {}
 
   async findAll() {
@@ -34,11 +34,20 @@ export class ConsentTemplatesService {
     const clinic = patient.tenant;
     const currentDate = new Date().toLocaleDateString('es-PE', { dateStyle: 'long' });
     
-    // Construye la URL absoluta del logo
-    const baseUrl = this.configService.get('API_BASE_URL');
-    const logoUrl = clinic.logoUrl ? `${baseUrl}${clinic.logoUrl}` : null;
+    // --- LÓGICA DE IMAGEN INCRUSTADA ---
+    let logoDataUri = null;
+    if (clinic.logoUrl) {
+      try {
+        const logoPath = path.join(process.cwd(), 'uploads', clinic.logoUrl);
+        const imageBuffer = await fs.readFile(logoPath);
+        const base64Image = imageBuffer.toString('base64');
+        logoDataUri = `data:image/webp;base64,${base64Image}`;
+      } catch (error) {
+        console.error('Error al leer el archivo del logo:', error);
+      }
+    }
+    // --- FIN ---
     
-    // Reemplaza los placeholders
     let content = template.content;
     content = content.replace(/{{patientName}}/g, patient.fullName);
     content = content.replace(/{{patientDni}}/g, patient.dni);
@@ -46,16 +55,23 @@ export class ConsentTemplatesService {
     content = content.replace(/{{doctorName}}/g, doctor.fullName);
     content = content.replace(/{{currentDate}}/g, currentDate);
 
-    return this.getHtmlWrapper(template.title, content, clinic, logoUrl);
+    return this.getHtmlWrapper(template.title, content, clinic, logoDataUri);
   }
   
-  private getHtmlWrapper(title: string, content: string, clinic: any, logoUrl: string | null): string {
+  private getHtmlWrapper(title: string, content: string, clinic: any, logoDataUri: string | null): string {
+    const clinicContactInfo = `
+      <p style="font-size: 12px; color: #666; margin: 0;">${clinic.address || ''}</p>
+      <p style="font-size: 12px; color: #666; margin: 0;">${clinic.phone || ''}</p>
+      <p style="font-size: 12px; color: #666; margin: 0;">${clinic.email || ''}</p>
+    `;
+
     const headerHtml = `
-      <header style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #EEE; padding-bottom: 1rem; margin-bottom: 2rem;">
-        <div style="max-width: 70%;">
-          <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #333;">${clinic.name}</h1>
+      <header style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 1rem; margin-bottom: 2rem;">
+        <div>
+          <h1 style="font-size: 22px; font-weight: bold; margin: 0; color: #333;">${clinic.name}</h1>
+          ${clinicContactInfo}
         </div>
-        ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-height: 80px; max-width: 30%;">` : ''}
+        ${logoDataUri ? `<img src="${logoDataUri}" alt="Logo" style="max-height: 70px; max-width: 30%;">` : ''}
       </header>
     `;
 
@@ -68,22 +84,13 @@ export class ConsentTemplatesService {
             h2 { font-size: 20px; text-align: center; margin-bottom: 2rem; }
             .content { white-space: pre-wrap; line-height: 1.6; }
             .signatures { margin-top: 80px; display: flex; justify-content: space-around; }
-            .signature-box { text-align: center; width: 40%; }
           </style>
         </head>
         <body>
           ${headerHtml}
           <h2>${title}</h2>
           <div class="content">${content}</div>
-          <div class="signatures">
-            <div class="signature-box">
-              <p style="border-top: 1px solid #333; padding-top: 8px;">Firma del Paciente/Apoderado</p>
-            </div>
-            <div class="signature-box">
-              <p style="border-top: 1px solid #333; padding-top: 8px;">Firma del Profesional</p>
-            </div>
-          </div>
-        </body>
+          </body>
       </html>
     `;
   }

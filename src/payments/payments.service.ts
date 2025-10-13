@@ -4,6 +4,8 @@ import { DataSource, Repository } from 'typeorm';
 import { Budget, BudgetStatus } from '../budgets/entities/budget.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { Payment } from './entities/payment.entity';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 @Injectable()
 export class PaymentsService {
@@ -53,6 +55,40 @@ export class PaymentsService {
     });
   }
 
+    async findOne(id: string, tenantId: string) {
+    const payment = await this.paymentRepository.findOne({
+      where: { id, tenant: { id: tenantId } },
+      relations: [
+        'budget',
+        'budget.patient',
+        'budget.tenant',
+        'budget.items',
+        'budget.items.treatment',
+      ],
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID "${id}" not found.`);
+    }
+
+    // --- LÓGICA DE IMAGEN INCRUSTADA AÑADIDA ---
+    if (payment.budget.tenant.logoUrl) {
+      try {
+        const logoPath = path.join(process.cwd(), 'uploads', payment.budget.tenant.logoUrl);
+        const imageBuffer = await fs.readFile(logoPath);
+        const base64Image = imageBuffer.toString('base64');
+        // Reemplazamos la URL relativa con la imagen completa en formato Data URI
+        payment.budget.tenant.logoUrl = `data:image/webp;base64,${base64Image}`;
+      } catch (error) {
+        console.error('Error al leer el archivo del logo para la boleta:', error);
+        payment.budget.tenant.logoUrl = null; // Si hay error, no enviamos logo
+      }
+    }
+    // --- FIN DE LA LÓGICA ---
+    
+    return payment;
+  }
+
   async findAllForBudget(budgetId: string, tenantId: string) {
     // Verificar que el presupuesto exista y pertenezca al tenant antes de mostrar los pagos
     const budget = await this.budgetRepository.findOneBy({ id: budgetId, tenant: { id: tenantId } });
@@ -63,4 +99,6 @@ export class PaymentsService {
       order: { paymentDate: 'DESC' },
     });
   }
+
+
 }

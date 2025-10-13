@@ -6,6 +6,18 @@ export class RegisterAuthDto {
   clinicName: string;
 
   @IsString()
+  @IsOptional()
+  clinicPhone?: string;
+
+  @IsEmail()
+  @IsOptional()
+  clinicEmail?: string;
+
+  @IsString()
+  @IsOptional()
+  clinicAddress?: string;
+
+  @IsString()
   @IsNotEmpty()
   fullName: string;
 

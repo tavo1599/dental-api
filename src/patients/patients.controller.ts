@@ -1,27 +1,29 @@
-// src/patients/patients.controller.ts
-import { Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete, UseInterceptors } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { UpdatePatientDto } from './dto/update-patient.dto';
-import { Roles } from '../auth/decorators/roles.decorator'; // <-- Importa esto
-import { RolesGuard } from '../auth/guards/roles.guard';   // <-- Importa esto
-import { UserRole } from '../users/entities/user.entity'; // <-- Importa esto
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '../users/entities/user.entity';
 import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
-import { UseInterceptors } from '@nestjs/common';
 import { BudgetsService } from '../budgets/budgets.service';
+import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto'; // <-- Importa el nuevo DTO
 
-@UseGuards(AuthGuard('jwt')) // Protege TODAS las rutas de este controlador
+@UseGuards(AuthGuard('jwt'))
 @Controller('patients')
 @UseInterceptors(AuditInterceptor)
 export class PatientsController {
-  constructor(private readonly patientsService: PatientsService, private readonly budgetsService: BudgetsService,) {}
+  constructor(
+    private readonly patientsService: PatientsService,
+    private readonly budgetsService: BudgetsService,
+  ) {}
 
   @Post()
   @AuditedAction('CREATE_PATIENT')
   create(@Body() createPatientDto: CreatePatientDto, @Req() req) {
-    const tenantId = req.user.tenantId; // Obtenemos el tenantId del token
+    const tenantId = req.user.tenantId;
     return this.patientsService.create(createPatientDto, tenantId);
   }
 
@@ -31,11 +33,29 @@ export class PatientsController {
     return this.patientsService.findAll(tenantId);
   }
 
-    @Get(':id/budgets')
+  @Get(':id/budgets')
   findAllBudgetsForPatient(@Param('id') id: string, @Req() req) {
-    // Reutilizamos la lógica que ya existe en BudgetsService
     return this.budgetsService.findAllForPatient(id, req.user.tenantId);
   }
+
+  // --- ENDPOINTS PARA HISTORIAL MÉDICO AÑADIDOS ---
+
+  @Get(':id/medical-history')
+  getMedicalHistory(@Param('id') id: string, @Req() req) {
+    return this.patientsService.getMedicalHistory(id, req.user.tenantId);
+  }
+
+  @Patch(':id/medical-history')
+  @AuditedAction('UPDATE_MEDICAL_HISTORY')
+  updateMedicalHistory(
+    @Param('id') id: string,
+    @Req() req,
+    @Body() dto: UpdateMedicalHistoryDto,
+  ) {
+    return this.patientsService.updateMedicalHistory(id, req.user.tenantId, dto);
+  }
+  
+  // --- FIN DE LOS ENDPOINTS AÑADIDOS ---
 
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req) {
@@ -43,18 +63,17 @@ export class PatientsController {
     return this.patientsService.findOne(id, tenantId);
   }
 
-
   @Patch(':id')
+  @AuditedAction('UPDATE_PATIENT')
   update(@Param('id') id: string, @Body() updatePatientDto: UpdatePatientDto, @Req() req) {
     const tenantId = req.user.tenantId;
     return this.patientsService.update(id, updatePatientDto, tenantId);
-
   }
 
   @Delete(':id')
   @AuditedAction('DELETE_PATIENT')
-  @Roles(UserRole.ADMIN) // Solo permite el rol de ADMIN
-  @UseGuards(RolesGuard)   // Aplica nuestra nueva guarda de roles
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
   remove(@Param('id') id: string, @Req() req) {
     const tenantId = req.user.tenantId;
     return this.patientsService.remove(id, tenantId);

@@ -49,6 +49,15 @@ export class Tenant {
 
   @Column({ type: 'text', nullable: true })
   googleCalendarId: string | null; // El ID del calendario a usar (ej. 'primary')
+
+  @Column({ type: 'varchar', nullable: true })
+  address: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  phone: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  email: string | null;
   // --- FIN ---
 
   @Column({ type: 'varchar', nullable: true })

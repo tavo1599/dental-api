@@ -1,7 +1,11 @@
-import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min, IsUUID } from 'class-validator';
 import { PaymentMethod } from '../entities/payment.entity';
 
 export class CreatePaymentDto {
+  @IsUUID()
+  @IsNotEmpty()
+  budgetId: string;
+
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   amount: number;
@@ -10,9 +14,10 @@ export class CreatePaymentDto {
   @IsNotEmpty()
   paymentMethod: PaymentMethod;
 
-  @IsDateString() // <-- AÑADE ESTO
-  @IsNotEmpty()   // <-- AÑADE ESTO
-  paymentDate: Date; // <-- AÑADE ESTO
+  // --- CORRECCIÓN AQUÍ ---
+  @IsDateString()
+  @IsNotEmpty()
+  paymentDate: string; // Debe ser 'string', no 'Date'
 
   @IsString()
   @IsOptional()

@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { InjectRepository } from '@nestjs/typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { Repository } from 'typeorm';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
 import * as sharp from 'sharp';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -56,5 +57,10 @@ export class TenantsService {
     } catch (error) {
       throw new InternalServerErrorException('Error al procesar la imagen.');
     }
+  }
+
+    async updateProfile(tenantId: string, dto: UpdateTenantDto) {
+    await this.tenantRepository.update(tenantId, dto);
+    return this.tenantRepository.findOneBy({ id: tenantId });
   }
 }

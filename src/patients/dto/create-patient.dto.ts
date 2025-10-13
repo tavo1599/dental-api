@@ -63,4 +63,12 @@ export class CreatePatientDto {
   @IsString()
   @IsOptional()
   emergencyContactPhone?: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsString()
+  @IsOptional()
+  fileCode?: string;
 }

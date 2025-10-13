@@ -1,9 +1,10 @@
-import { Controller, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Post, Req, Patch, Body, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { TenantsService } from './tenants.service';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -28,4 +29,12 @@ export class TenantsController {
   uploadLogo(@Req() req, @UploadedFile() file: Express.Multer.File) {
     return this.tenantsService.updateLogo(req.user.tenantId, file);
   }
+
+  @Patch('profile')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  updateProfile(@Req() req, @Body() dto: UpdateTenantDto) {
+    return this.tenantsService.updateProfile(req.user.tenantId, dto);
+  }
+
 }
