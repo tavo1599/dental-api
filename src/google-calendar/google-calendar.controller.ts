@@ -7,29 +7,29 @@ import { Response } from 'express';
 export class GoogleCalendarController {
   constructor(private readonly googleCalendarService: GoogleCalendarService) {}
 
-  // Ruta para iniciar la autenticación
-  // Quitamos el @UseGuards para que no pida el token JWT
   @Get('auth')
+  // No necesita @UseGuards porque la seguridad la manejamos al verificar el tenantId
   getAuthUrl(@Query('tenantId') tenantId: string, @Res() res: Response) {
+    // Genera la URL de autenticación de Google
     const url = this.googleCalendarService.generateAuthUrl(tenantId);
+    // Redirige al usuario a la página de autenticación de Google
     res.redirect(url);
   }
 
-  // Ruta de callback (esta no necesita cambios)
   @Get('auth/callback')
   async authCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
     await this.googleCalendarService.handleAuthCallback(code, state);
-    res.send('¡Autenticación completada! Puedes cerrar esta ventana.');
+    res.send('<script>window.close();</script>');
   }
 
   @Get('status')
-  @UseGuards(AuthGuard('jwt')) // Esta ruta SÍ necesita protección
+  @UseGuards(AuthGuard('jwt'))
   getIntegrationStatus(@Req() req) {
     return this.googleCalendarService.getIntegrationStatus(req.user.tenantId);
   }
 
   @Delete('integration')
-  @UseGuards(AuthGuard('jwt')) // Esta ruta SÍ necesita protección
+  @UseGuards(AuthGuard('jwt'))
   unlink(@Req() req) {
     return this.googleCalendarService.unlink(req.user.tenantId);
   }
