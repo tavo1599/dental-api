@@ -72,10 +72,7 @@ import { MedicalHistory } from './patients/entities/medical-history.entity';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
         entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory],
-        synchronize: true,
-        ssl: {
-          rejectUnauthorized: false,
-        }, // ¡Solo para desarrollo!
+        synchronize: true, // ¡Solo para desarrollo!
       }),
     }),
 
