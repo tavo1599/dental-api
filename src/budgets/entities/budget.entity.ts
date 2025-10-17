@@ -31,6 +31,7 @@ export class Budget {
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
   patient: Patient;
+  
 
   @ManyToOne(() => Tenant)
   tenant: Tenant;

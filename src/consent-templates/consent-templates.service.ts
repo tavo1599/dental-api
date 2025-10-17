@@ -1,11 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { ConsentTemplate } from './entities/consent-template.entity';
 import { Patient } from '../patients/entities/patient.entity';
+import { CreateConsentTemplateDto } from './dto/create-consent-template.dto';
+import { UpdateConsentTemplateDto } from './dto/update-consent-template.dto';
 import { User } from '../users/entities/user.entity';
-import * as fs from 'fs/promises'; // Importa el sistema de archivos
+import * as fs from 'fs/promises';
 import * as path from 'path';
+import { Tenant } from '../tenants/entities/tenant.entity';
 
 @Injectable()
 export class ConsentTemplatesService {
@@ -16,8 +19,42 @@ export class ConsentTemplatesService {
     private readonly patientRepository: Repository<Patient>,
   ) {}
 
-  async findAll() {
-    return this.templateRepository.find();
+  async findAll(tenantId: string) {
+    return this.templateRepository.find({
+      where: [
+        { tenant: { id: tenantId } },
+        { tenant: IsNull() },
+      ],
+      relations: ['tenant'],
+      order: { category: 'ASC', title: 'ASC' },
+    });
+  }
+
+  async create(createDto: CreateConsentTemplateDto, tenantId: string | null) {
+    const templateData: Partial<ConsentTemplate> = {
+      ...createDto,
+    };
+    if (tenantId) {
+      templateData.tenant = { id: tenantId } as Tenant;
+    }
+    const newTemplate = this.templateRepository.create(templateData);
+    return this.templateRepository.save(newTemplate);
+  }
+
+  async update(id: string, updateDto: UpdateConsentTemplateDto, tenantId: string) {
+    const template = await this.templateRepository.findOneBy({ id, tenant: { id: tenantId } });
+    if (!template) {
+      throw new NotFoundException('Plantilla no encontrada o no pertenece a esta clínica.');
+    }
+    Object.assign(template, updateDto);
+    return this.templateRepository.save(template);
+  }
+
+  async remove(id: string, tenantId: string) {
+    const result = await this.templateRepository.delete({ id, tenant: { id: tenantId } });
+    if (result.affected === 0) {
+      throw new NotFoundException('Plantilla no encontrada o no pertenece a esta clínica.');
+    }
   }
 
   async generate(templateId: string, patientId: string, doctor: User) {
@@ -34,19 +71,16 @@ export class ConsentTemplatesService {
     const clinic = patient.tenant;
     const currentDate = new Date().toLocaleDateString('es-PE', { dateStyle: 'long' });
     
-    // --- LÓGICA DE IMAGEN INCRUSTADA ---
     let logoDataUri = null;
     if (clinic.logoUrl) {
       try {
         const logoPath = path.join(process.cwd(), 'uploads', clinic.logoUrl);
         const imageBuffer = await fs.readFile(logoPath);
-        const base64Image = imageBuffer.toString('base64');
-        logoDataUri = `data:image/webp;base64,${base64Image}`;
+        logoDataUri = `data:image/webp;base64,${imageBuffer.toString('base64')}`;
       } catch (error) {
         console.error('Error al leer el archivo del logo:', error);
       }
     }
-    // --- FIN ---
     
     let content = template.content;
     content = content.replace(/{{patientName}}/g, patient.fullName);
@@ -55,10 +89,12 @@ export class ConsentTemplatesService {
     content = content.replace(/{{doctorName}}/g, doctor.fullName);
     content = content.replace(/{{currentDate}}/g, currentDate);
 
-    return this.getHtmlWrapper(template.title, content, clinic, logoDataUri);
+    // Ahora pasamos el paciente y el doctor a la función que genera el HTML
+    return this.getHtmlWrapper(template.title, content, clinic, logoDataUri, patient, doctor);
   }
   
-  private getHtmlWrapper(title: string, content: string, clinic: any, logoDataUri: string | null): string {
+  // --- FUNCIÓN 'getHtmlWrapper' CORREGIDA ---
+  private getHtmlWrapper(title: string, content: string, clinic: any, logoDataUri: string | null, patient: Patient, doctor: User): string {
     const clinicContactInfo = `
       <p style="font-size: 12px; color: #666; margin: 0;">${clinic.address || ''}</p>
       <p style="font-size: 12px; color: #666; margin: 0;">${clinic.phone || ''}</p>
@@ -75,6 +111,23 @@ export class ConsentTemplatesService {
       </header>
     `;
 
+    // Nueva sección de firmas
+    const signaturesHtml = `
+      <div style="margin-top: 80px; display: flex; justify-content: space-around; align-items: flex-start;">
+        <div style="text-align: center; width: 45%;">
+          <div style="border-bottom: 1px solid #333; height: 60px;"></div>
+          <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${patient.fullName}</p>
+          <p style="margin: 0; font-size: 12px;">DNI: ${patient.dni}</p>
+          <p style="margin-top: 4px;">Paciente o Apoderado</p>
+        </div>
+        <div style="text-align: center; width: 45%;">
+          <div style="border-bottom: 1px solid #333; height: 60px;"></div>
+          <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${doctor.fullName}</p>
+          <p style="margin-top: 4px;">Profesional Tratante (Firma y Sello)</p>
+        </div>
+      </div>
+    `;
+
     return `
       <html>
         <head>
@@ -83,14 +136,14 @@ export class ConsentTemplatesService {
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; color: #333; }
             h2 { font-size: 20px; text-align: center; margin-bottom: 2rem; }
             .content { white-space: pre-wrap; line-height: 1.6; }
-            .signatures { margin-top: 80px; display: flex; justify-content: space-around; }
           </style>
         </head>
         <body>
           ${headerHtml}
           <h2>${title}</h2>
           <div class="content">${content}</div>
-          </body>
+          ${signaturesHtml}
+        </body>
       </html>
     `;
   }

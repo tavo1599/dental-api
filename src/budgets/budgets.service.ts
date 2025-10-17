@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Patient } from '../patients/entities/patient.entity';
@@ -20,15 +20,18 @@ export class BudgetsService {
     private readonly budgetItemRepository: Repository<BudgetItem>,
   ) {}
 
-async create(createBudgetDto: CreateBudgetDto, patientId: string, tenantId: string) {
-    const patient = await this.patientRepository.findOneBy({ id: patientId });
+  // --- MÉTODO 'create' CORREGIDO ---
+  async create(createBudgetDto: CreateBudgetDto, tenantId: string, doctorId: string) {
+    const { patientId, items: itemsDto } = createBudgetDto;
+    
+    const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
     if (!patient) throw new NotFoundException('Paciente no encontrado');
 
     let totalAmount = 0;
     const budgetItems: BudgetItem[] = [];
 
-    for (const itemDto of createBudgetDto.items) {
-      const treatment = await this.treatmentRepository.findOneBy({ id: itemDto.treatmentId });
+    for (const itemDto of itemsDto) {
+      const treatment = await this.treatmentRepository.findOneBy({ id: itemDto.treatmentId, tenant: { id: tenantId } });
       if (treatment) {
         const itemTotal = treatment.price * itemDto.quantity;
         totalAmount += itemTotal;
@@ -45,6 +48,7 @@ async create(createBudgetDto: CreateBudgetDto, patientId: string, tenantId: stri
     const newBudget = this.budgetRepository.create({
       patient,
       tenant: { id: tenantId },
+      doctor: { id: doctorId }, // Ahora sí existe doctorId
       totalAmount,
       items: budgetItems,
     });
@@ -52,42 +56,43 @@ async create(createBudgetDto: CreateBudgetDto, patientId: string, tenantId: stri
     return this.budgetRepository.save(newBudget);
   }
 
-
-  async findAllForPatient(patientId: string, tenantId: string) {
-    // Verificar que el paciente pertenezca al tenant
-    const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
-    if (!patient) throw new UnauthorizedException('Patient access denied');
+  async findAllForPatient(patientId: string, tenantId: string, doctorId?: string) {
+    const whereCondition: any = {
+      patient: { id: patientId },
+      tenant: { id: tenantId },
+    };
+    if (doctorId) {
+      whereCondition.doctor = { id: doctorId };
+    }
 
     return this.budgetRepository.find({
-        where: { patient: { id: patientId } },
-        relations: ['items', 'items.treatment'], // Carga los items y los detalles del tratamiento
-        order: { creationDate: 'DESC' }
+      where: whereCondition,
+      relations: ['items', 'items.treatment', 'doctor'],
+      order: { creationDate: 'DESC' },
     });
   }
 
-  async updateStatus(budgetId: string, tenantId: string, newStatus: 'approved' | 'rejected') {
+  async updateStatus(budgetId: string, tenantId: string, newStatus: BudgetStatus) {
     const budget = await this.budgetRepository.findOneBy({ id: budgetId, tenant: { id: tenantId } });
 
     if (!budget) {
       throw new NotFoundException(`Budget with ID "${budgetId}" not found.`);
     }
 
-    budget.status = newStatus === 'approved' ? BudgetStatus.APPROVED : BudgetStatus.REJECTED;
+    budget.status = newStatus;
     
     return this.budgetRepository.save(budget);
   }
 
   async findOne(id: string, tenantId: string) {
-  const budget = await this.budgetRepository.findOne({
-    where: { id, tenant: { id: tenantId } },
-    // Cargamos todas las relaciones que necesitamos para la impresión
-    relations: ['patient', 'tenant', 'items', 'items.treatment'],
-  });
+    const budget = await this.budgetRepository.findOne({
+      where: { id, tenant: { id: tenantId } },
+      relations: ['patient', 'tenant', 'items', 'items.treatment', 'doctor'],
+    });
 
-  if (!budget) {
-    throw new NotFoundException(`Budget with ID "${id}" not found.`);
+    if (!budget) {
+      throw new NotFoundException(`Budget with ID "${id}" not found.`);
+    }
+    return budget;
   }
-  return budget;
 }
-}
-
