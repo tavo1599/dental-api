@@ -12,5 +12,6 @@ import { Patient } from '../patients/entities/patient.entity'; // <-- 1. Importa
   ],
   controllers: [ConsentTemplatesController],
   providers: [ConsentTemplatesService],
+  exports: [ConsentTemplatesService],
 })
 export class ConsentTemplatesModule {}
