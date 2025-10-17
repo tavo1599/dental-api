@@ -10,6 +10,7 @@ import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 import { BudgetsService } from '../budgets/budgets.service';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto'; // <-- Importa el nuevo DTO
+import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('patients')
@@ -54,8 +55,21 @@ export class PatientsController {
   ) {
     return this.patientsService.updateMedicalHistory(id, req.user.tenantId, dto);
   }
-  
-  // --- FIN DE LOS ENDPOINTS AÑADIDOS ---
+
+  @Get(':id/odontopediatric-history')
+  getOdontopediatricHistory(@Param('id') id: string, @Req() req) {
+    return this.patientsService.getOdontopediatricHistory(id, req.user.tenantId);
+  }
+
+  @Patch(':id/odontopediatric-history')
+  @AuditedAction('UPDATE_ODONTOPEDIATRIC_HISTORY')
+  updateOdontopediatricHistory(
+    @Param('id') id: string,
+    @Req() req,
+    @Body() dto: UpdateOdontopediatricHistoryDto,
+  ) {
+    return this.patientsService.updateOdontopediatricHistory(id, req.user.tenantId, dto);
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req) {

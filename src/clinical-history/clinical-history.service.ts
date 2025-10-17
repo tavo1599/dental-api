@@ -1,29 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Patient } from '../patients/entities/patient.entity';
 import { ClinicalHistoryEntry } from './entities/clinical-history-entry.entity';
 import { CreateClinicalHistoryEntryDto } from './dto/create-clinical-history-entry.dto';
+import { PatientsService } from '../patients/patients.service'; // <-- 1. Importa el Servicio de Pacientes
 
 @Injectable()
 export class ClinicalHistoryService {
   constructor(
     @InjectRepository(ClinicalHistoryEntry)
     private readonly historyRepository: Repository<ClinicalHistoryEntry>,
-    @InjectRepository(Patient) // Inyectamos el repo de Pacientes para verificar
-    private readonly patientRepository: Repository<Patient>,
+    // 2. Inyecta el PatientsService en lugar del PatientRepository
+    @Inject(forwardRef(() => PatientsService))
+    private readonly patientsService: PatientsService,
   ) {}
 
-  // Verifica que un paciente pertenezca al tenant del usuario
-  private async verifyPatientTenant(patientId: string, tenantId: string) {
-    const patient = await this.patientRepository.findOne({
-      where: { id: patientId, tenant: { id: tenantId } },
-    });
-    if (!patient) {
-      throw new UnauthorizedException('Access to patient denied');
-    }
-    return patient;
-  }
+  // 3. Ya no necesitamos el método 'verifyPatientTenant'
 
   async create(
     createDto: CreateClinicalHistoryEntryDto,
@@ -31,10 +23,9 @@ export class ClinicalHistoryService {
     userId: string,
     tenantId: string,
   ) {
-    // 1. Verifica que el doctor tenga permiso para ver a este paciente
-    await this.verifyPatientTenant(patientId, tenantId);
+    // 4. Usamos el patientsService para verificar el paciente
+    await this.patientsService.findOne(patientId, tenantId);
 
-    // 2. Crea la nueva entrada del historial
     const newEntry = this.historyRepository.create({
       ...createDto,
       patient: { id: patientId },
@@ -46,14 +37,13 @@ export class ClinicalHistoryService {
   }
 
   async findAllForPatient(patientId: string, tenantId: string) {
-    // 1. Verifica que el doctor tenga permiso para ver a este paciente
-    await this.verifyPatientTenant(patientId, tenantId);
+    // 4. Usamos el patientsService para verificar el paciente
+    await this.patientsService.findOne(patientId, tenantId);
 
-    // 2. Busca el historial, ordenado por fecha descendente
     return this.historyRepository.find({
       where: { patient: { id: patientId } },
       order: { entryDate: 'DESC' },
-      relations: ['user'], // Opcional: Carga la info del doctor que hizo la entrada
+      relations: ['user'],
     });
   }
 }

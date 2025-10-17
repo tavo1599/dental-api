@@ -2,21 +2,22 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from './entities/patient.entity';
-import { ClinicalHistoryEntry } from './entities/clinical-history-entry.entity';
-import { MedicalHistory } from './entities/medical-history.entity'; // Importa la nueva entidad
+import { MedicalHistory } from './entities/medical-history.entity';
+import { OdontopediatricHistory } from './entities/odontopediatric-history.entity';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
+import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 
 @Injectable()
 export class PatientsService {
   constructor(
     @InjectRepository(Patient)
     private readonly patientRepository: Repository<Patient>,
-    @InjectRepository(ClinicalHistoryEntry)
-    private readonly historyRepository: Repository<ClinicalHistoryEntry>,
-    @InjectRepository(MedicalHistory) // 1. Inyectamos el nuevo repositorio
+    @InjectRepository(MedicalHistory) // Solo inyectamos Patient y MedicalHistory
     private readonly medicalHistoryRepository: Repository<MedicalHistory>,
+    @InjectRepository(OdontopediatricHistory) // <-- 3. Inyecta el nuevo repositorio
+    private readonly odontopediatricHistoryRepository: Repository<OdontopediatricHistory>,
   ) {}
 
   async create(createPatientDto: CreatePatientDto, tenantId: string) {
@@ -24,14 +25,17 @@ export class PatientsService {
       ...createPatientDto,
       tenant: { id: tenantId },
     });
-    // 2. Guardamos el nuevo paciente
     const savedPatient = await this.patientRepository.save(newPatient);
 
-    // 3. Creamos una entrada de historial médico vacía y la asociamos al paciente recién creado
     const newMedicalHistory = this.medicalHistoryRepository.create({
       patient: savedPatient,
     });
     await this.medicalHistoryRepository.save(newMedicalHistory);
+
+    const newPediatricHistory = this.odontopediatricHistoryRepository.create({
+      patient: savedPatient,
+    });
+    await this.odontopediatricHistoryRepository.save(newPediatricHistory);
 
     return savedPatient;
   }
@@ -44,9 +48,8 @@ export class PatientsService {
 
   async findOne(id: string, tenantId: string) {
     const patient = await this.patientRepository.findOne({
-      // 4. Al buscar un paciente, también cargamos su historial médico
       where: { id, tenant: { id: tenantId } },
-      relations: ['medicalHistory'], 
+      relations: ['medicalHistory', 'odontopediatricHistory'], 
     });
     if (!patient) {
       throw new NotFoundException(`Patient with ID "${id}" not found`);
@@ -54,7 +57,6 @@ export class PatientsService {
     return patient;
   }
   
-  // Mantenemos tus métodos para actualizar y borrar pacientes
   async update(id: string, updatePatientDto: UpdatePatientDto, tenantId: string) {
     const patient = await this.findOne(id, tenantId);
     const updatedPatient = this.patientRepository.merge(patient, updatePatientDto);
@@ -67,7 +69,6 @@ export class PatientsService {
     return { message: `Patient with ID "${id}" successfully removed` };
   }
 
-  // --- MÉTODOS PARA EL HISTORIAL MÉDICO ---
   async getMedicalHistory(patientId: string, tenantId: string) {
     const patient = await this.patientRepository.findOne({
       where: { id: patientId, tenant: { id: tenantId } },
@@ -96,4 +97,34 @@ export class PatientsService {
     Object.assign(history, dto);
     return this.medicalHistoryRepository.save(history);
   }
+
+  async getOdontopediatricHistory(patientId: string, tenantId: string) {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId, tenant: { id: tenantId } },
+      relations: ['odontopediatricHistory'],
+    });
+    if (!patient) {
+      throw new NotFoundException('Paciente no encontrado.');
+    }
+    return patient.odontopediatricHistory;
+  }
+
+  async updateOdontopediatricHistory(patientId: string, tenantId: string, dto: UpdateOdontopediatricHistoryDto) {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId, tenant: { id: tenantId } },
+      relations: ['odontopediatricHistory'],
+    });
+    if (!patient) {
+      throw new NotFoundException('Paciente no encontrado.');
+    }
+
+    let history = patient.odontopediatricHistory;
+    if (!history) {
+      history = this.odontopediatricHistoryRepository.create({ patient });
+    }
+
+    Object.assign(history, dto);
+    return this.odontopediatricHistoryRepository.save(history);
+  }
+
 }

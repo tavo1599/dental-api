@@ -1,7 +1,9 @@
-// src/patients/entities/patient.entity.ts
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { MedicalHistory } from './medical-history.entity';
-import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { ClinicalHistoryEntry } from '../../clinical-history/entities/clinical-history-entry.entity'; // <-- Importa la entidad que faltaba
+import { Appointment } from '../../appointments/entities/appointment.entity'; // <-- Importa la entidad Appointment
+import { OdontopediatricHistory } from './odontopediatric-history.entity';
+import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
 
 export enum Gender {
   MALE = 'male',
@@ -26,7 +28,7 @@ export class Patient {
   @Column()
   phone: string;
 
-  @Column({ nullable: true }) // El email puede ser opcional
+  @Column({ nullable: true })
   email?: string;
   
   @Column({ nullable: true })
@@ -44,15 +46,14 @@ export class Patient {
   @Column('text', { nullable: true })
   allergies?: string;
 
-  // --- AÑADE ESTOS NUEVOS CAMPOS ---
   @Column({ nullable: true })
-  department?: string; // Departamento
+  department?: string;
 
   @Column({ nullable: true })
-  province?: string; // Provincia
+  province?: string;
 
   @Column({ nullable: true })
-  district?: string; // Distrito
+  district?: string;
 
   @Column({ type: 'enum', enum: Gender, nullable: true })
   gender?: Gender;
@@ -61,18 +62,31 @@ export class Patient {
   relevantMedicalHistory?: string;
 
   @Column({ type: 'varchar', length: 10, nullable: true })
-  category: string; // Ej: 'O', 'OI', 'I'
+  category: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  fileCode: string; // Ej: '00123'
+  fileCode: string;
 
-  // LA CLAVE: Cada paciente pertenece a UN solo tenant (clínica).
   @ManyToOne(() => Tenant)
   tenant: Tenant;
 
   @CreateDateColumn()
   createdAt: Date;
 
-  @OneToOne(() => MedicalHistory, medicalHistory => medicalHistory.patient, { cascade: true })
+  // --- RELACIONES ---
+
+  // La anamnesis (se llena una vez)
+  @OneToOne(() => MedicalHistory, (medicalHistory) => medicalHistory.patient, { cascade: true })
   medicalHistory: MedicalHistory;
+
+  @OneToOne(() => OdontopediatricHistory, history => history.patient, { cascade: true })
+  odontopediatricHistory: OdontopediatricHistory;
+
+  // Las entradas de historial (se añaden en cada cita)
+  @OneToMany(() => ClinicalHistoryEntry, (entry) => entry.patient)
+  clinicalHistory: ClinicalHistoryEntry[];
+
+  // Las citas del paciente
+  @OneToMany(() => Appointment, (appointment) => appointment.patient)
+  appointments: Appointment[];
 }

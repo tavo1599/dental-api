@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsPositive, MaxLength } from 'class-validator';
 
 export class CreateClinicalHistoryEntryDto {
   @IsString()
@@ -8,4 +8,38 @@ export class CreateClinicalHistoryEntryDto {
   @IsString()
   @IsOptional()
   treatmentPerformed?: string;
+
+  @IsString()
+  @IsOptional()
+  diagnosis?: string;
+
+  @IsString()
+  @IsOptional()
+  prescription?: string;
+
+  @IsString()
+  @IsOptional()
+  indications?: string;
+
+  // --- CAMPOS DE SIGNOS VITALES AÑADIDOS ---
+  @IsString()
+  @IsOptional()
+  @MaxLength(10)
+  bloodPressure?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @IsPositive()
+  heartRate?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @IsPositive()
+  temperature?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @IsPositive()
+  respiratoryRate?: number;
+  // --- FIN ---
 }
