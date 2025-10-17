@@ -1,8 +1,9 @@
-import { Controller, Post, Param, UploadedFile, UseInterceptors, UseGuards, Req, Get } from '@nestjs/common';
+import { Controller, Post, Param, UploadedFile, UseInterceptors, UseGuards, Req, Get, Body} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { AuthGuard } from '@nestjs/passport';
 import { DocumentsService } from './documents.service';
+import { SignConsentDto } from './dto/sign-consent.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('documents')
@@ -31,4 +32,18 @@ export class DocumentsController {
   findAllForPatient(@Param('patientId') patientId: string, @Req() req) {
     return this.documentsService.findAllForPatient(patientId, req.user.tenantId);
   }
+
+  @Post('sign-consent')
+  @UseGuards(AuthGuard('jwt'))
+  async signConsent(@Body() signConsentDto: SignConsentDto, @Req() req) {
+    const { patientId, templateId, signatureBase64 } = signConsentDto;
+    return this.documentsService.createSignedConsent(
+      patientId,
+      req.user.tenantId,
+      req.user, // Pasamos el objeto 'user' completo
+      templateId,
+      signatureBase64,
+    );
+  }
+
 }

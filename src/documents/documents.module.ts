@@ -7,10 +7,12 @@ import { PatientDocument } from './entities/patient-document.entity';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { Patient } from '../patients/entities/patient.entity';
+import { ConsentTemplatesModule } from '../consent-templates/consent-templates.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PatientDocument, Patient]),
+    ConsentTemplatesModule,
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads', // Carpeta raíz de subidas
