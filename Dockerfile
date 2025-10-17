@@ -3,7 +3,12 @@
 FROM node:20 AS builder
 WORKDIR /app
 
-# 1. Instalamos las librerías del sistema operativo que Puppeteer necesita
+# --- CORRECCIÓN CLAVE ---
+# 1. Define la variable de entorno DENTRO del build.
+ENV PUPPETEER_CACHE_DIR=/app/.cache
+# --- FIN DE LA CORRECCIÓN ---
+
+# 2. Instala las librerías del SO que Puppeteer necesita
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libatk1.0-0 \
@@ -17,12 +22,9 @@ RUN apt-get update && apt-get install -y \
 # Copiamos los archivos de dependencias
 COPY package*.json ./
 
-# 2. Instalamos las dependencias de npm
+# 3. Instalamos las dependencias (npm install ahora usará la ENV)
+# Puppeteer descargará Chromium en /app/.cache
 RUN npm install
-
-# 3. Forzamos la descarga de Chromium en la carpeta .cache
-#    (Render sabe dónde está gracias a la variable de entorno que pusimos)
-RUN npx puppeteer browsers install chrome
 
 # Copiamos el resto del código
 COPY . .
@@ -30,7 +32,7 @@ COPY . .
 # 4. Construimos la aplicación (compilamos de TS a JS)
 RUN npm run build
 
-# 5. Opcional: Eliminamos las dependencias de desarrollo para aligerar la imagen
+# 5. Opcional: Eliminamos las dependencias de desarrollo
 RUN npm prune --production
 
 
@@ -39,7 +41,10 @@ RUN npm prune --production
 FROM node:20-slim AS runtime
 WORKDIR /app
 
-# 6. Instalamos SOLO las librerías del SO que se necesitan para correr
+# 6. Define la misma ENV para el runtime
+ENV PUPPETEER_CACHE_DIR=/app/.cache
+
+# 7. Instala SOLO las librerías del SO que se necesitan para correr
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libatk1.0-0 \
@@ -51,12 +56,12 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# 7. Copiamos solo lo necesario desde la etapa de "construcción"
+# 8. Copiamos solo lo necesario desde la etapa de "construcción"
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
-# 8. ¡¡LA LÍNEA MÁS IMPORTANTE!!
-# Copiamos el navegador Chromium que descargamos en la etapa anterior
+# 9. ¡¡LA LÍNEA MÁS IMPORTANTE!!
+# Copiamos el navegador Chromium que SÍ se descargó en /app/.cache
 COPY --from=builder /app/.cache ./.cache
 
 # Exponemos el puerto
