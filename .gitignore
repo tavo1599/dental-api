@@ -22,3 +22,5 @@ lerna-debug.log*
 # Archivos de sistema operativo
 .DS_Store
 Thumbs.db
+
+/.cache

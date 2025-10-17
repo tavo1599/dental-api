@@ -1,35 +1,66 @@
-# --- Etapa de Build ---
-# Usamos una imagen de Node.js para instalar dependencias y construir el proyecto
+# --- ETAPA 1: CONSTRUCCIÓN (Builder) ---
+# Usamos una imagen de Node.js 20 (basada en Debian)
 FROM node:20 AS builder
-
-# Establecemos el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Copiamos los archivos de manifiesto del proyecto
+# 1. Instalamos las librerías del sistema operativo que Puppeteer necesita
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libgtk-3-0 \
+    libgbm1 \
+    libasound2 \
+    --no-install-recommends
+
+# Copiamos los archivos de dependencias
 COPY package*.json ./
 
-# Instalamos las dependencias
+# 2. Instalamos las dependencias de npm
 RUN npm install
 
-# Copiamos todo el código fuente del proyecto
+# 3. Forzamos la descarga de Chromium en la carpeta .cache
+#    (Render sabe dónde está gracias a la variable de entorno que pusimos)
+RUN npx puppeteer browsers install chrome
+
+# Copiamos el resto del código
 COPY . .
 
-# Construimos la aplicación de TypeScript a JavaScript
+# 4. Construimos la aplicación (compilamos de TS a JS)
 RUN npm run build
 
-# --- Etapa de Producción ---
-# Usamos una imagen más ligera para la ejecución
-FROM node:20-alpine
+# 5. Opcional: Eliminamos las dependencias de desarrollo para aligerar la imagen
+RUN npm prune --production
 
+
+# --- ETAPA 2: EJECUCIÓN (Runtime) ---
+# Usamos 'slim' que es más ligera pero compatible
+FROM node:20-slim AS runtime
 WORKDIR /app
 
-# Copiamos las dependencias de producción desde la etapa de 'builder'
+# 6. Instalamos SOLO las librerías del SO que se necesitan para correr
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libgtk-3-0 \
+    libgbm1 \
+    libasound2 \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# 7. Copiamos solo lo necesario desde la etapa de "construcción"
 COPY --from=builder /app/node_modules ./node_modules
-# Copiamos el código ya compilado desde la etapa de 'builder'
 COPY --from=builder /app/dist ./dist
 
-# Exponemos el puerto 3000
+# 8. ¡¡LA LÍNEA MÁS IMPORTANTE!!
+# Copiamos el navegador Chromium que descargamos en la etapa anterior
+COPY --from=builder /app/.cache ./.cache
+
+# Exponemos el puerto
 EXPOSE 3000
 
-# El comando para iniciar la aplicación
+# El comando de inicio que Render usará
 CMD ["node", "dist/main"]
