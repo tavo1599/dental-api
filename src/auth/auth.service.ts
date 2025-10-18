@@ -99,6 +99,7 @@ export class AuthService {
     return this.generateTokenForUser(user);
   }
   
+  
 generateTokenForUser(user: User) {
   const payload = {
     sub: user.id,
@@ -115,6 +116,20 @@ generateTokenForUser(user: User) {
     access_token: this.jwtService.sign(payload),
   };
 }
+
+async findUserById(userId: string) {
+    // Busca al usuario y carga sus relaciones más importantes (el tenant)
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['tenant'],
+    });
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+    delete user.password_hash; // Nunca devuelvas el hash
+    return user;
+  }
+
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const { email } = forgotPasswordDto;

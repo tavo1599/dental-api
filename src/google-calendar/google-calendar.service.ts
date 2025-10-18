@@ -41,8 +41,8 @@ export class GoogleCalendarService implements OnModuleInit {
 
   generateAuthUrl(tenantId: string) {
     const scopes = [
-      'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events', // Para crear citas
+      'https://www.googleapis.com/auth/userinfo.email',  // Para leer el email del usuario
     ];
 
     return this.oauth2Client.generateAuthUrl({

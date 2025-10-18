@@ -35,11 +35,12 @@ export class AuthController {
   
   // ------------------------------------
 
-  @Get('profile')
   @UseGuards(AuthGuard('jwt'))
-  getProfile(@Req() req) {
-    // Llamamos a la nueva función para obtener datos frescos de la BD
-    return this.authService.getFullUserProfile(req.user.sub);
+  @Get('profile')
+  async getProfile(@Req() req) {
+    // En lugar de: return req.user; (que son datos viejos del token)
+    // Pedimos los datos frescos a la base de datos:
+    return this.authService.findUserById(req.user.sub);
   }
 
   @Patch('profile')
