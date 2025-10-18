@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PatientDocument } from './entities/patient-document.entity';
@@ -87,4 +87,32 @@ export class DocumentsService {
 
     return this.docRepository.save(newDocument);
   }
+
+  async remove(documentId: string, tenantId: string) {
+    // 1. Encontrar el documento
+    const document = await this.docRepository.findOneBy({ 
+      id: documentId, 
+      tenant: { id: tenantId } 
+    });
+
+    if (!document) {
+      throw new NotFoundException('Documento no encontrado o no pertenece a esta clínica.');
+    }
+
+    // 2. Construir la ruta física completa
+    const fullPath = path.join(process.cwd(), 'uploads', document.filePath);
+
+    // 3. Borrar el archivo físico del disco
+    try {
+      await fs.unlink(fullPath);
+    } catch (error) {
+      // Si el archivo no existe, al menos borramos el registro
+      console.warn(`No se pudo eliminar el archivo físico: ${fullPath}. Se procederá a borrar el registro.`);
+    }
+
+    // 4. Borrar el registro de la base de datos
+    await this.docRepository.remove(document);
+    return { message: 'Documento eliminado con éxito.' };
+  }
+
 }

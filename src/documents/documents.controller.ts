@@ -1,9 +1,12 @@
-import { Controller, Post, Param, UploadedFile, UseInterceptors, UseGuards, Req, Get, Body} from '@nestjs/common';
+import { Controller, Post, Param, UploadedFile, UseInterceptors, UseGuards, Req, Get, Body, Delete, HttpCode, HttpStatus} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { AuthGuard } from '@nestjs/passport';
 import { DocumentsService } from './documents.service';
 import { SignConsentDto } from './dto/sign-consent.dto';
+import { Roles } from '../auth/decorators/roles.decorator'; // <-- Importa Roles
+import { UserRole } from '../users/entities/user.entity'; // <-- Importa UserRole
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('documents')
@@ -44,6 +47,14 @@ export class DocumentsController {
       templateId,
       signatureBase64,
     );
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.ASSISTANT) // Solo Admin o Asistente pueden borrar
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id') id: string, @Req() req) {
+    return this.documentsService.remove(id, req.user.tenantId);
   }
 
 }
