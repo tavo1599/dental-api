@@ -20,9 +20,13 @@ export class DocumentsService {
   ) {}
 
   async saveDocument(file: Express.Multer.File, patientId: string, tenantId: string) {
+    // Esta función está bien: file.path es 'uploads/documents/archivo.docx'
+    // dbPath se convierte en 'documents/archivo.docx'
+    const dbPath = file.path.replace('uploads/', '').replace(/\\/g, '/');
+    
     const newDoc = this.docRepository.create({
       fileName: file.originalname,
-      filePath: file.path, // Esto ya incluye "uploads/documents/..."
+      filePath: dbPath, // Guarda la ruta limpia
       fileType: file.mimetype,
       patient: { id: patientId },
       tenant: { id: tenantId },
@@ -36,7 +40,6 @@ export class DocumentsService {
     });
   }
 
-  // --- FUNCIÓN 'createSignedConsent' CORREGIDA ---
   async createSignedConsent(
     patientId: string,
     tenantId: string,
@@ -47,7 +50,6 @@ export class DocumentsService {
     const htmlContent = await this.consentService.generate(templateId, patientId, doctor);
     const patient = await this.patientRepository.findOneBy({ id: patientId });
 
-    // ... (Lógica para estampar la firma en el HTML)
     const signatureHtml = `
       <div style="margin-top: 40px; border-top: 1px solid #ccc; padding-top: 10px; text-align: left;">
         <img src="data:image/png;base64,${signatureBase64}" alt="Firma del Paciente" style="height: 80px;"/>
@@ -59,32 +61,34 @@ export class DocumentsService {
     `;
     const finalHtml = htmlContent.replace('</body>', `${signatureHtml}</body>`);
     
-    // ... (Lógica para generar el PDF)
     const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     await page.setContent(finalHtml, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
     await browser.close();
 
-    // --- ESTA ES LA CORRECCIÓN CLAVE ---
+    // --- CORRECCIÓN DE RUTA ---
     const fileName = `Consentimiento_Firmado_${patient.dni}_${new Date().toISOString().split('T')[0]}.pdf`;
-    // 1. Define la ruta relativa DENTRO de 'uploads'
-    const relativeFilePath = path.join('documents', fileName);
-    // 2. Define la ruta completa en el disco para guardarlo
-    const fullPath = path.join(process.cwd(), 'uploads', relativeFilePath);
-    // 3. Define la ruta que se guardará en la BD (incluyendo 'uploads')
-    const dbPath = path.join('uploads', relativeFilePath).replace(/\\/g, '/'); // Asegura formato URL
+    
+    // 1. Define la ruta que se guardará en la BD (ej: 'documents/archivo.pdf')
+    const dbPath = path.join('documents', fileName).replace(/\\/g, '/');
+    
+    // 2. Define la ruta física completa donde se guarda en el disco (ej: '/app/uploads/documents/archivo.pdf')
+    const fullPath = path.join(process.cwd(), 'uploads', dbPath);
     // --- FIN DE LA CORRECCIÓN ---
 
     try {
+      // Aseguramos que la carpeta exista antes de escribir
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, pdfBuffer);
     } catch (error) {
+      console.error('Error al guardar el archivo PDF:', error); // Añadimos un log
       throw new InternalServerErrorException('Error al guardar el archivo PDF.');
     }
 
     const newDocument = this.docRepository.create({
       fileName: fileName,
-      filePath: dbPath, // <-- Guarda la ruta completa con 'uploads/'
+      filePath: dbPath, // <-- Guarda la ruta limpia
       fileType: 'application/pdf',
       patient: { id: patientId },
       tenant: { id: tenantId },

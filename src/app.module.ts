@@ -78,8 +78,10 @@ import { OdontopediatricHistory } from './patients/entities/odontopediatric-hist
     }),
 
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/', // Sirve los archivos desde la raíz
+      // La carpeta física en el servidor
+      rootPath: join(process.cwd(), 'uploads'),
+      // La URL base desde donde se sirven
+      serveRoot: '/', 
     }),
 
     // Importa todos los módulos
