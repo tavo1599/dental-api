@@ -20,13 +20,11 @@ export class DocumentsService {
   ) {}
 
   async saveDocument(file: Express.Multer.File, patientId: string, tenantId: string) {
-    // Esta función está bien: file.path es 'uploads/documents/archivo.docx'
-    // dbPath se convierte en 'documents/archivo.docx'
     const dbPath = file.path.replace('uploads/', '').replace(/\\/g, '/');
     
     const newDoc = this.docRepository.create({
       fileName: file.originalname,
-      filePath: dbPath, // Guarda la ruta limpia
+      filePath: dbPath,
       fileType: file.mimetype,
       patient: { id: patientId },
       tenant: { id: tenantId },
@@ -52,20 +50,27 @@ export class DocumentsService {
 
     const newSignatureHtml = `
       <div id="signature-section" style="margin-top: 80px; display: flex; justify-content: space-around; align-items: flex-start; page-break-inside: avoid;">
+        
         <div style="text-align: center; width: 45%;">
           <img src="data:image/png;base64,${signatureBase64}" alt="Firma del Paciente" style="height: 80px; border-bottom: 1px solid #333;"/>
           <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${patient.fullName}</p>
           <p style="margin: 0; font-size: 12px;">DNI: ${patient.dni}</p>
           <p style="margin-top: 4px;">Paciente o Apoderado</p>
         </div>
+
         <div style="text-align: center; width: 45%;">
           <div style="border-bottom: 1px solid #333; height: 80px;"></div>
           <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${doctor.fullName}</p>
           <p style="margin-top: 4px;">Profesional Tratante (Firma y Sello)</p>
         </div>
+
       </div>
     `;
-    const finalHtml = htmlContent.replace(/<div id="signature-section".*?<\/div>/, newSignatureHtml);
+
+    // --- CORRECCIÓN CLAVE AQUÍ ---
+    // Añadimos el flag 's' al final de la RegExp
+    const finalHtml = htmlContent.replace(/<div id="signature-section"[\s\S]*?<\/div>/, newSignatureHtml);
+    // --- FIN DE LA CORRECCIÓN ---
     
     const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
@@ -73,22 +78,15 @@ export class DocumentsService {
     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
     await browser.close();
 
-    // --- CORRECCIÓN DE RUTA ---
     const fileName = `Consentimiento_Firmado_${patient.dni}_${new Date().toISOString().split('T')[0]}.pdf`;
-    
-    // 1. Define la ruta que se guardará en la BD (ej: 'documents/archivo.pdf')
     const dbPath = path.join('documents', fileName).replace(/\\/g, '/');
-    
-    // 2. Define la ruta física completa donde se guarda en el disco (ej: '/app/uploads/documents/archivo.pdf')
     const fullPath = path.join(process.cwd(), 'uploads', dbPath);
-    // --- FIN DE LA CORRECCIÓN ---
 
     try {
-      // Aseguramos que la carpeta exista antes de escribir
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, pdfBuffer);
     } catch (error) {
-      console.error('Error al guardar el archivo PDF:', error); // Añadimos un log
+      console.error('Error al guardar el archivo PDF:', error);
       throw new InternalServerErrorException('Error al guardar el archivo PDF.');
     }
 
