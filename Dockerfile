@@ -25,9 +25,9 @@ FROM node:20-slim AS runtime
 WORKDIR /app
 
 # --- ESTA ES LA CORRECCIÓN CLAVE ---
-# 1. Instalamos las librerías del SO Y el propio navegador Chromium
+# 1. Instalamos las librerías del SO Y el navegador con el nombre 'chromium'
 RUN apt-get update && apt-get install -y \
-    chromium-browser \
+    chromium \
     libnss3 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
@@ -39,7 +39,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Le decimos a Puppeteer DÓNDE encontrar el ejecutable que acabamos de instalar
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # --- FIN DE LA CORRECCIÓN ---
 
 # 3. Copiamos los archivos de la aplicación
