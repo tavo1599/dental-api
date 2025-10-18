@@ -111,9 +111,10 @@ export class ConsentTemplatesService {
       </header>
     `;
 
-    // Nueva sección de firmas
+    // --- CORRECCIÓN CLAVE AQUÍ ---
+    // Añadimos el id="signature-section" al div principal
     const signaturesHtml = `
-      <div style="margin-top: 80px; display: flex; justify-content: space-around; align-items: flex-start;">
+      <div id="signature-section" style="margin-top: 80px; display: flex; justify-content: space-around; align-items: flex-start; page-break-inside: avoid;">
         <div style="text-align: center; width: 45%;">
           <div style="border-bottom: 1px solid #333; height: 60px;"></div>
           <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${patient.fullName}</p>
@@ -127,6 +128,7 @@ export class ConsentTemplatesService {
         </div>
       </div>
     `;
+    // --- FIN DE LA CORRECCIÓN ---
 
     return `
       <html>
