@@ -3,7 +3,7 @@ import { MedicalHistory } from './medical-history.entity';
 import { ClinicalHistoryEntry } from '../../clinical-history/entities/clinical-history-entry.entity'; // <-- Importa la entidad que faltaba
 import { Appointment } from '../../appointments/entities/appointment.entity'; // <-- Importa la entidad Appointment
 import { OdontopediatricHistory } from './odontopediatric-history.entity';
-import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
+import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDateColumn, OneToMany, Unique } from 'typeorm';
 
 export enum Gender {
   MALE = 'male',
@@ -12,6 +12,7 @@ export enum Gender {
 }
 
 @Entity({ name: 'patients' })
+@Unique(['dni', 'tenant'])
 export class Patient {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -19,7 +20,7 @@ export class Patient {
   @Column()
   fullName: string;
 
-  @Column({ unique: true })
+  @Column()
   dni: string;
 
   @Column({ type: 'date' })

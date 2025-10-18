@@ -21,8 +21,6 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
-  // --- AÑADE ESTOS DOS ENDPOINTS ---
-
   @Post('forgot-password')
   forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.authService.forgotPassword(forgotPasswordDto);
