@@ -77,9 +77,9 @@ import { OdontopediatricHistory } from './patients/entities/odontopediatric-hist
       }),
     }),
 
-    ServeStaticModule.forRoot({ // <-- Añade esta configuración
+    ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/uploads/', // Los archivos estarán disponibles en http://.../uploads/
+      serveRoot: '/', // Sirve los archivos desde la raíz
     }),
 
     // Importa todos los módulos
