@@ -45,33 +45,20 @@ export class DocumentsService {
     templateId: string,
     signatureBase64: string,
   ) {
+    // 1. Genera el HTML (que ahora incluye el placeholder)
     const htmlContent = await this.consentService.generate(templateId, patientId, doctor);
     const patient = await this.patientRepository.findOneBy({ id: patientId });
 
-    const newSignatureHtml = `
-      <div id="signature-section" style="margin-top: 80px; display: flex; justify-content: space-around; align-items: flex-start; page-break-inside: avoid;">
-        
-        <div style="text-align: center; width: 45%;">
-          <img src="data:image/png;base64,${signatureBase64}" alt="Firma del Paciente" style="height: 80px; border-bottom: 1px solid #333;"/>
-          <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${patient.fullName}</p>
-          <p style="margin: 0; font-size: 12px;">DNI: ${patient.dni}</p>
-          <p style="margin-top: 4px;">Paciente o Apoderado</p>
-        </div>
+    // 2. Crea el HTML que reemplazará al placeholder (solo la imagen)
+    const signatureImgHtml = `<img src="data:image/png;base64,${signatureBase64}" alt="Firma del Paciente" style="height: 80px; display: block; margin: 0 auto;"/>`;
 
-        <div style="text-align: center; width: 45%;">
-          <div style="border-bottom: 1px solid #333; height: 80px;"></div>
-          <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${doctor.fullName}</p>
-          <p style="margin-top: 4px;">Profesional Tratante (Firma y Sello)</p>
-        </div>
+    // 3. Define la expresión regular para buscar el placeholder
+    const placeholderRegex = /<div id="patient-signature-placeholder"[\s\S]*?<\/div>/;
 
-      </div>
-    `;
-
-    // --- CORRECCIÓN CLAVE AQUÍ ---
-    // Añadimos el flag 's' al final de la RegExp
-    const finalHtml = htmlContent.replace(/<div id="signature-section"[\s\S]*?<\/div>/, newSignatureHtml);
-    // --- FIN DE LA CORRECCIÓN ---
+    // 4. Reemplaza SOLO el placeholder con la imagen de la firma
+    const finalHtml = htmlContent.replace(placeholderRegex, signatureImgHtml);
     
+    // 5. Genera el PDF (el resto de la lógica es la misma)
     const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     await page.setContent(finalHtml, { waitUntil: 'networkidle0' });

@@ -94,7 +94,7 @@ export class ConsentTemplatesService {
   }
   
   // --- FUNCIÓN 'getHtmlWrapper' CORREGIDA ---
-  private getHtmlWrapper(title: string, content: string, clinic: any, logoDataUri: string | null, patient: Patient, doctor: User): string {
+private getHtmlWrapper(title: string, content: string, clinic: any, logoDataUri: string | null, patient: Patient, doctor: User): string {
     const clinicContactInfo = `
       <p style="font-size: 12px; color: #666; margin: 0;">${clinic.address || ''}</p>
       <p style="font-size: 12px; color: #666; margin: 0;">${clinic.phone || ''}</p>
@@ -111,24 +111,27 @@ export class ConsentTemplatesService {
       </header>
     `;
 
-    // --- CORRECCIÓN CLAVE AQUÍ ---
-    // Añadimos el id="signature-section" al div principal
+    // --- SECCIÓN DE FIRMAS REDISEÑADA ---
     const signaturesHtml = `
       <div id="signature-section" style="margin-top: 80px; display: flex; justify-content: space-around; align-items: flex-start; page-break-inside: avoid;">
+        
         <div style="text-align: center; width: 45%;">
-          <div style="border-bottom: 1px solid #333; height: 60px;"></div>
-          <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${patient.fullName}</p>
+          <div id="patient-signature-placeholder" style="border-bottom: 1px solid #333; height: 80px; margin-bottom: 8px;">
+            </div>
+          <p style="margin: 0; font-weight: bold;">${patient.fullName}</p>
           <p style="margin: 0; font-size: 12px;">DNI: ${patient.dni}</p>
           <p style="margin-top: 4px;">Paciente o Apoderado</p>
         </div>
+
         <div style="text-align: center; width: 45%;">
-          <div style="border-bottom: 1px solid #333; height: 60px;"></div>
-          <p style="margin-top: 8px; margin-bottom: 0; font-weight: bold;">${doctor.fullName}</p>
+          <div style="border-bottom: 1px solid #333; height: 80px; margin-bottom: 8px;"></div>
+          <p style="margin: 0; font-weight: bold;">${doctor.fullName}</p>
           <p style="margin-top: 4px;">Profesional Tratante (Firma y Sello)</p>
         </div>
+
       </div>
     `;
-    // --- FIN DE LA CORRECCIÓN ---
+    // --- FIN DE LA SECCIÓN ---
 
     return `
       <html>
