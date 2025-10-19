@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param, Delete, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -32,7 +32,7 @@ export class AppointmentsController {
     return this.appointmentsService.updateStatus(id, updateDto, tenantId);
   }
 
-   @Patch(':id/time')
+  @Patch(':id/time')
   updateTime(
     @Param('id') id: string,
     @Body() updateDto: UpdateAppointmentTimeDto,
@@ -54,5 +54,12 @@ export class AppointmentsController {
 findNextDayPending(@Req() req) {
   return this.appointmentsService.findNextDayPending(req.user.tenantId);
 }
+
+@Delete(':id')
+  @HttpCode(HttpStatus.OK) // Devuelve 200 OK en lugar de 204 No Content
+  remove(@Param('id') id: string, @Req() req) {
+    // Ya no usamos RolesGuard, cualquier usuario autenticado puede borrar
+    return this.appointmentsService.remove(id, req.user.tenantId);
+  }
 
 }

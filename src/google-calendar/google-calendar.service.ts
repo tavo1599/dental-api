@@ -149,4 +149,28 @@ export class GoogleCalendarService implements OnModuleInit {
 
     return { message: 'Desvinculación exitosa.' };
   }
+
+  async deleteEvent(tenantId: string, eventId: string) {
+    const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
+    if (!tenant || !tenant.googleRefreshToken) {
+      this.logger.warn('No se puede eliminar evento de Google: Clínica no conectada.');
+      return;
+    }
+
+    try {
+      const auth = await this.getAuthenticatedClient(tenant);
+      const calendar = google.calendar({ version: 'v3', auth });
+
+      await calendar.events.delete({
+        calendarId: 'primary',
+        eventId: eventId,
+      });
+      this.logger.log(`Evento ${eventId} eliminado de Google Calendar.`);
+    } catch (error) {
+      this.logger.error('Error al eliminar el evento de Google Calendar', error);
+      // No lanzamos un error, solo lo registramos, 
+      // porque la cita en nuestro sistema SÍ debe eliminarse.
+    }
+  }
+
 }

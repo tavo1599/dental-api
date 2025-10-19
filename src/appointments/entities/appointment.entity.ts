@@ -29,6 +29,9 @@ export class Appointment {
   })
   status: AppointmentStatus;
 
+  @Column({ nullable: true })
+  googleEventId: string;
+
   @Column('text', { nullable: true })
   notes?: string; // Motivo de la cita o notas adicionales
 

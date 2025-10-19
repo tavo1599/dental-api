@@ -139,4 +139,27 @@ export class AppointmentsService {
     appointment.endTime = newEndTime;
     return this.appointmentRepository.save(appointment);
   }
+
+  async remove(id: string, tenantId: string) {
+    const appointment = await this.appointmentRepository.findOneBy({ 
+      id, 
+      tenant: { id: tenantId } 
+    });
+    
+    if (!appointment) {
+      throw new NotFoundException('Cita no encontrada.');
+    }
+
+    // Si la cita tiene un evento de Google asociado, lo borramos
+    if (appointment.googleEventId) {
+      try {
+        await this.googleCalendarService.deleteEvent(tenantId, appointment.googleEventId);
+      } catch (error) {
+        this.logger.warn('No se pudo eliminar el evento de Google Calendar.');
+      }
+    }
+
+    await this.appointmentRepository.remove(appointment);
+    return { message: 'Cita eliminada permanentemente.' };
+  }
 }
