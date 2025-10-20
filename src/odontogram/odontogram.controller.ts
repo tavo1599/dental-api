@@ -1,7 +1,8 @@
-import { Controller, Get, Body, Param, UseGuards, Req, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { OdontogramService } from './odontogram.service';
 import { UpdateOdontogramDto } from './dto/update-odontogram.dto';
+import { CreateToothStateDto } from './dto/create-tooth-state.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
@@ -28,4 +29,27 @@ export class OdontogramController {
     const { tenantId } = req.user;
     return this.odontogramService.updateOdontogram(updateDto, patientId, tenantId);
   }
+
+  @Post('state')
+  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @UseGuards(RolesGuard)
+  saveToothState(
+    @Param('patientId') patientId: string,
+    @Body() dto: CreateToothStateDto,
+    @Req() req
+  ) {
+    return this.odontogramService.saveToothState(dto, patientId, req.user.tenantId);
+  }
+
+  @Delete('state/:id')
+  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  clearToothState(
+    @Param('id') id: string, // El ID del registro ToothState
+    @Req() req
+  ) {
+    return this.odontogramService.clearToothState(id, req.user.tenantId);
+  }
+
 }
