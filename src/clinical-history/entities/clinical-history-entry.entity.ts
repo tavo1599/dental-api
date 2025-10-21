@@ -15,6 +15,9 @@ export class ClinicalHistoryEntry {
   description: string;
 
   @Column('text', { nullable: true })
+  evolution: string; // Evolución / SOAP
+
+  @Column('text', { nullable: true })
   treatmentPerformed?: string;
 
   @Column('text', { nullable: true })

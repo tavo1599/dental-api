@@ -7,6 +7,10 @@ export class CreateClinicalHistoryEntryDto {
 
   @IsString()
   @IsOptional()
+  evolution?: string;
+
+  @IsString()
+  @IsOptional()
   treatmentPerformed?: string;
 
   @IsString()
