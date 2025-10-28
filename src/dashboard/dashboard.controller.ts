@@ -22,3 +22,4 @@ getAppointmentStatusSummary(@Req() req) {
   return this.dashboardService.getAppointmentStatusSummary(req.user.tenantId);
 }
 }
+

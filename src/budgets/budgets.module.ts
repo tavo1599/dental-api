@@ -7,7 +7,7 @@ import { BudgetItem } from './entities/budget-item.entity';
 import { Treatment } from '../treatments/entities/treatment.entity';
 import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
-import { PatientsModule } from '../patients/patients.module'; // <-- ESTA IMPORTACIÓN ES CORRECTA
+import { PatientsModule } from '../patients/patients.module'; // <-- 1. Importa el Módulo de Pacientes
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import { PatientsModule } from '../patients/patients.module'; // <-- ESTA IMPORT
       User,   
       Tenant
     ]),
-  forwardRef(() => PatientsModule) // <-- Importamos con forwardRef para evitar posibles ciclos
+    PatientsModule // <-- 2. Añádelo aquí
   ],
   controllers: [BudgetsController],
   providers: [BudgetsService],

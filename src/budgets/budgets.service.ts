@@ -38,6 +38,7 @@ export class BudgetsService {
 
         const newBudgetItem = this.budgetItemRepository.create({
           treatment,
+          treatmentName: treatment.name,
           quantity: itemDto.quantity,
           priceAtTimeOfBudget: treatment.price,
         });
@@ -60,7 +61,13 @@ export class BudgetsService {
 
     const saved = await this.budgetRepository.save(newBudget);
 
-    // Previously emitted a websocket event here; websockets were removed.
+    // Emitir evento via WebSocket para notificar al tenant que se creó un presupuesto
+    try {
+      this.eventsGateway.emitToTenant(tenantId, 'budget.created', saved);
+    } catch (e) {
+      // no bloquear la creación por errores en WS
+      console.warn('Failed to emit budget.created event', e);
+    }
 
     return saved;
   }

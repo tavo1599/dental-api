@@ -3,7 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { Payment } from '../payments/entities/payment.entity';
-import { Between, MoreThan, Repository } from 'typeorm'; // <-- 1. Importa 'MoreThan'
+import { Between, MoreThan, Repository } from 'typeorm';
+import { Budget } from '../budgets/entities/budget.entity'; // <-- 1. Importa Budget
+import { startOfDay, endOfDay, subDays } from 'date-fns'; // <-- 2. Importa date-fns
 
 @Injectable()
 export class DashboardService {
@@ -14,19 +16,22 @@ export class DashboardService {
     private readonly patientRepository: Repository<Patient>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    // --- 3. AÑADE BudgetRepository ---
+    @InjectRepository(Budget)
+    private readonly budgetRepository: Repository<Budget>,
   ) {}
 
   async getSummary(tenantId: string) {
-    // --- LÓGICA DE FECHAS ---
+    // --- LÓGICA DE FECHAS (Usando date-fns para consistencia) ---
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    const tomorrowEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const tomorrowStart = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+    const tomorrowEnd = endOfDay(tomorrowStart);
+    const monthStart = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+    const monthEnd = endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    const lastMonthStart = startOfDay(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const lastMonthEnd = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
 
     // --- CÁLCULOS ---
     const todayAppointments = await this.appointmentRepository.find({ where: { tenant: { id: tenantId }, startTime: Between(todayStart, todayEnd) }, relations: ['patient'], order: { startTime: 'ASC' } });
@@ -48,11 +53,16 @@ export class DashboardService {
 
     const topTreatments = monthlyPayments.reduce((acc, payment) => {
         payment.budget?.items.forEach(item => {
-            const treatmentName = item.treatment.name;
+            // --- CORRECCIÓN CLAVE AQUÍ ---
+            // Usamos 'item.treatment?.name' para evitar el error si el tratamiento es nulo
+            const treatmentName = item.treatment?.name || 'Tratamiento Eliminado';
+            // --- FIN DE LA CORRECCIÓN ---
+
             if (!acc[treatmentName]) acc[treatmentName] = 0;
             const itemTotal = Number(item.priceAtTimeOfBudget) * item.quantity;
-            const budgetTotal = Number(payment.budget.totalAmount);
-            // Asigna el pago proporcionalmente al costo del item dentro del presupuesto
+            // Usamos '?' por si el presupuesto fue eliminado
+            const budgetTotal = Number(payment.budget?.totalAmount); 
+            
             if (budgetTotal > 0) {
               acc[treatmentName] += (itemTotal / budgetTotal) * Number(payment.amount);
             }
@@ -86,7 +96,6 @@ export class DashboardService {
     };
   }
 
-  // --- 2. MÉTODO MOVIDO DENTRO DE LA CLASE ---
   async getMonthlyRevenue(tenantId: string) {
     const last12Months = new Date();
     last12Months.setMonth(last12Months.getMonth() - 12);
@@ -114,24 +123,22 @@ export class DashboardService {
   }
 
   async getAppointmentStatusSummary(tenantId: string) {
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+    const monthStart = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    const monthEnd = endOfDay(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
 
-  // Usamos una consulta SQL para agrupar y contar directamente en la base de datos
-  const query = `
-    SELECT status, COUNT(*) as count
-    FROM appointments
-    WHERE "tenantId" = $1
-      AND "startTime" BETWEEN $2 AND $3
-    GROUP BY status;
-  `;
+    const query = `
+      SELECT status, COUNT(*) as count
+      FROM appointments
+      WHERE "tenantId" = $1
+        AND "startTime" BETWEEN $2 AND $3
+      GROUP BY status;
+    `;
 
-  const result = await this.appointmentRepository.query(query, [tenantId, monthStart, monthEnd]);
+    const result = await this.appointmentRepository.query(query, [tenantId, monthStart, monthEnd]);
 
-  // Formateamos los datos para el gráfico
-  return {
-    labels: result.map((item: any) => item.status),
-    data: result.map((item: any) => parseInt(item.count, 10)),
-  };
-}
+    return {
+      labels: result.map((item: any) => item.status),
+      data: result.map((item: any) => parseInt(item.count, 10)),
+    };
+  }
 }

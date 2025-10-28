@@ -20,9 +20,7 @@ export class DocumentsService {
   ) {}
 
   async saveDocument(file: Express.Multer.File, patientId: string, tenantId: string) {
-  // Guardar la ruta relativa dentro de la carpeta 'uploads' (ej: 'documents/archivo.pdf')
-  const uploadsRoot = path.join(process.cwd(), 'uploads');
-  const dbPath = path.relative(uploadsRoot, file.path).replace(/\\/g, '/');
+    const dbPath = file.path.replace('uploads/', '').replace(/\\/g, '/');
     
     const newDoc = this.docRepository.create({
       fileName: file.originalname,

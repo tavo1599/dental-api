@@ -1,7 +1,4 @@
-import { 
-  Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete, UseInterceptors 
-  // ¡No necesitamos @Query!
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete, UseInterceptors } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -11,21 +8,16 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
-// ¡Ya no importamos BudgetsService!
-import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
+import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto'; // <-- Importa el nuevo DTO
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('patients')
 @UseInterceptors(AuditInterceptor)
 export class PatientsController {
-  
-  // --- CONSTRUCTOR CORREGIDO ---
-  // Se eliminó 'budgetsService' de aquí
   constructor(
-    private readonly patientsService: PatientsService
+    private readonly patientsService: PatientsService,
   ) {}
-  // --- FIN DE LA CORRECCIÓN ---
 
   @Post()
   @AuditedAction('CREATE_PATIENT')
@@ -34,24 +26,19 @@ export class PatientsController {
     return this.patientsService.create(createPatientDto, tenantId);
   }
 
-  // --- findAll VUELVE A TU VERSIÓN ORIGINAL ---
   @Get()
   findAll(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.patientsService.findAll(tenantId);
   }
-  // --- FIN ---
 
-  // --- ENDPOINT DUPLICADO ELIMINADO ---
-  // La ruta 'GET :id/budgets' se eliminó
-  // --- FIN ---
+  // --- ENDPOINTS PARA HISTORIAL MÉDICO AÑADIDOS ---
 
-  // --- Endpoints para Historial Médico y Pediátrico ---
   @Get(':id/medical-history')
   getMedicalHistory(@Param('id') id: string, @Req() req) {
     return this.patientsService.getMedicalHistory(id, req.user.tenantId);
   }
-  
+
   @Patch(':id/medical-history')
   @AuditedAction('UPDATE_MEDICAL_HISTORY')
   updateMedicalHistory(
@@ -61,7 +48,7 @@ export class PatientsController {
   ) {
     return this.patientsService.updateMedicalHistory(id, req.user.tenantId, dto);
   }
-  
+
   @Get(':id/odontopediatric-history')
   getOdontopediatricHistory(@Param('id') id: string, @Req() req) {
     return this.patientsService.getOdontopediatricHistory(id, req.user.tenantId);
@@ -76,7 +63,6 @@ export class PatientsController {
   ) {
     return this.patientsService.updateOdontopediatricHistory(id, req.user.tenantId, dto);
   }
-  // --- Fin Endpoints Historial ---
 
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req) {

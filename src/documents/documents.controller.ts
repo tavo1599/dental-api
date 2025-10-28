@@ -19,9 +19,7 @@ export class DocumentsController {
       destination: './uploads/documents',
       filename: (req, file, cb) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        // Reemplazamos espacios y caracteres problemáticos del nombre original
-        const safeOriginal = file.originalname.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
-        return cb(null, `${randomName}-${safeOriginal}`);
+        return cb(null, `${randomName}-${file.originalname}`);
       },
     }),
   }))
