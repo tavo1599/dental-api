@@ -23,6 +23,24 @@ export class Budget {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 
+  @Column({ 
+    type: 'decimal', 
+    precision: 10, 
+    scale: 2, 
+    default: 0,
+    comment: 'Descuento de monto fijo (ej. 50)' 
+  })
+  discountAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    comment: 'Monto final después de aplicar descuento'
+  })
+  finalAmount: number;
+
 @Column({ type: 'decimal', precision: 10, scale: 2, default: 0.0 })
   paidAmount: number;
 

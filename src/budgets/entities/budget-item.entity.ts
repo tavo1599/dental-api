@@ -20,6 +20,6 @@ export class BudgetItem {
   budget: Budget;
 
   // Cada item se refiere a UN tratamiento del catálogo
-  @ManyToOne(() => Treatment, { eager: true }) // eager carga los datos del tratamiento automáticamente
+  @ManyToOne(() => Treatment, { eager: true })
   treatment: Treatment;
 }

@@ -8,7 +8,6 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
-import { BudgetsService } from '../budgets/budgets.service';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto'; // <-- Importa el nuevo DTO
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 
@@ -18,7 +17,6 @@ import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-hi
 export class PatientsController {
   constructor(
     private readonly patientsService: PatientsService,
-    private readonly budgetsService: BudgetsService,
   ) {}
 
   @Post()
@@ -32,11 +30,6 @@ export class PatientsController {
   findAll(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.patientsService.findAll(tenantId);
-  }
-
-  @Get(':id/budgets')
-  findAllBudgetsForPatient(@Param('id') id: string, @Req() req) {
-    return this.budgetsService.findAllForPatient(id, req.user.tenantId);
   }
 
   // --- ENDPOINTS PARA HISTORIAL MÉDICO AÑADIDOS ---
