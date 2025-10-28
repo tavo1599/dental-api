@@ -1,15 +1,13 @@
 {
   "name": "dental-api",
   "version": "1.0.0",
-  "main": "dist/main.js",
+  "main": "index.js",
 "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prebuild": "rimraf dist",
-    "build": "nest build",
-    "postinstall": "npm run build",
-    "start": "node dist/main.js",
+    "start": "ts-node src/main.ts",
     "start:dev": "ts-node-dev --respawn src/main.ts",
-    "start:prod": "node dist/main.js",
+    "build": "nest build",
+    
     "typeorm": "npx typeorm -d src/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run"
@@ -46,10 +44,7 @@
     "rxjs": "^7.8.2",
     "sharp": "^0.34.4",
     "typeorm": "^0.3.25",
-    "uuid": "^11.1.0",
-    "typescript": "^5.8.3",
-    "ts-node": "^10.9.2",
-    "rimraf": "^5.0.0"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -57,9 +52,8 @@
     "@types/node": "^24.1.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/uuid": "^10.0.0",
-    "ts-node-dev": "^2.0.0"
-  },
-  "engines": {
-    "node": ">=20.0.0"
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
   }
 }

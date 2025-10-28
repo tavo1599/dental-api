@@ -6,13 +6,19 @@ WORKDIR /app
 # Copiamos los archivos de dependencias
 COPY package*.json ./
 
-# Instalamos las dependencias de npm
+# --- INICIO DE LA CORRECCIÓN ---
+# 1. Copiamos el resto del código (incluyendo src/ y tsconfig.json)
+#    ANTES de instalar
+COPY . .
+# --- FIN DE LA CORRECCIÓN ---
+
+# 2. Instalamos las dependencias de npm
+#    Ahora, si 'npm install' ejecuta 'npm run build', encontrará tsconfig.json
 RUN npm install
 
-# Copiamos el resto del código
-COPY . .
-
-# Construimos la aplicación (compilamos de TS a JS)
+# 3. Construimos la aplicación (compilamos de TS a JS)
+#    Si 'npm install' ya lo hizo (por un script postinstall),
+#    este comando será redundante, pero no fallará.
 RUN npm run build
 
 # Opcional: Eliminamos las dependencias de desarrollo
@@ -20,12 +26,11 @@ RUN npm prune --production
 
 
 # --- ETAPA 2: EJECUCIÓN (Runtime) ---
-# Usamos 'slim' que es más ligera pero compatible
+# (Esta etapa estaba bien, la dejamos igual)
 FROM node:20-slim AS runtime
 WORKDIR /app
 
-# --- ESTA ES LA CORRECCIÓN CLAVE ---
-# 1. Instalamos las librerías del SO Y el navegador con el nombre 'chromium'
+# Instalamos las librerías del SO Y el navegador para Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
     libnss3 \
@@ -38,11 +43,10 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Le decimos a Puppeteer DÓNDE encontrar el ejecutable que acabamos de instalar
+# Le decimos a Puppeteer DÓNDE encontrar el ejecutable
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-# --- FIN DE LA CORRECCIÓN ---
 
-# 3. Copiamos los archivos de la aplicación
+# Copiamos los archivos de la aplicación
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
