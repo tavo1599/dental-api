@@ -38,7 +38,6 @@ export class BudgetsService {
 
         const newBudgetItem = this.budgetItemRepository.create({
           treatment,
-          treatmentName: treatment.name,
           quantity: itemDto.quantity,
           priceAtTimeOfBudget: treatment.price,
         });

@@ -33,38 +33,50 @@ import { PlannedTreatmentsModule } from './planned-treatments/planned-treatments
 import { ConsentTemplatesModule } from './consent-templates/consent-templates.module';
 import { GoogleCalendarModule } from './google-calendar/google-calendar.module';
 import { OrthodonticAnamnesisModule } from './orthodontic-anamnesis/orthodontic-anamnesis.module';
+import { Tenant } from './tenants/entities/tenant.entity';
+import { User } from './users/entities/user.entity';
+import { Patient } from './patients/entities/patient.entity';
+import { ClinicalHistoryEntry } from './clinical-history/entities/clinical-history-entry.entity';
+import { Appointment } from './appointments/entities/appointment.entity';
+import { ToothSurfaceState } from './odontogram/entities/tooth-surface-state.entity';
+import { Treatment } from './treatments/entities/treatment.entity';
+import { Budget } from './budgets/entities/budget.entity';
+import { BudgetItem } from './budgets/entities/budget-item.entity';
+import { Payment } from './payments/entities/payment.entity';
+import { PatientDocument } from './documents/entities/patient-document.entity';
+import { PeriodontalMeasurement } from './periodontogram/entities/periodontal-measurement.entity';
+import { Prescription } from './prescriptions/entities/prescription.entity';
+import { Expense } from './expenses/entities/expense.entity';
+import { AuditLog } from './audit/entities/audit.entity';
+import { Announcement } from './announcements/entities/announcement.entity';
+import { Cie10Code } from './cie10/entities/cie10-code.entity';
+import { PlannedTreatment } from './planned-treatments/entities/planned-treatment.entity';
+import { ConsentTemplate } from './consent-templates/entities/consent-template.entity';
+import { Tooth } from './odontogram/entities/tooth.entity';
+import { MedicalHistory } from './patients/entities/medical-history.entity';
+import { OdontopediatricHistory } from './patients/entities/odontopediatric-history.entity';
+import { ToothState } from './odontogram/entities/tooth-state.entity';
+import { OrthodonticAnamnesis } from './orthodontic-anamnesis/entities/orthodontic-anamnesis.entity';
 
 @Module({
   imports: [
+    // Carga las variables de entorno del archivo .env
     ConfigModule.forRoot({ isGlobal: true }),
 
+    // Configura la conexión a la base de datos de forma ASÍNCRONA
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      // --- FÁBRICA DE TypeORM CORREGIDA ---
-      useFactory: (configService: ConfigService) => {
-        
-        // 1. Detecta si estás en producción (Render)
-        const isProduction = configService.get<string>('NODE_ENV') === 'production';
-
-        // 2. Define la configuración de SSL
-        const sslConfig = isProduction 
-          ? { ssl: { rejectUnauthorized: false } } // Necesario para Render
-          : {}; // Vacío para localhost
-
-        // 3. Devuelve la configuración completa
-        return {
-          type: 'postgres',
-          host: configService.get<string>('DB_HOST'),
-          port: configService.get<number>('DB_PORT'),
-          username: configService.get<string>('DB_USERNAME'),
-          password: configService.get<string>('DB_PASSWORD'),
-          database: configService.get<string>('DB_DATABASE'),
-          autoLoadEntities: true,
-          synchronize: true,
-          ...sslConfig, // 4. Aplica la configuración SSL aquí
-        };
-      },
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST'),
+        port: configService.get<number>('DB_PORT'),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_DATABASE'),
+        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticAnamnesis],
+        synchronize: true, // ¡Solo para desarrollo!
+      }),
     }),
     // --- FIN DE LA CORRECCIÓN ---
 
