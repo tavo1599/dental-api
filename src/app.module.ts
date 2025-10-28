@@ -34,9 +34,6 @@ import { ConsentTemplatesModule } from './consent-templates/consent-templates.mo
 import { GoogleCalendarModule } from './google-calendar/google-calendar.module';
 import { OrthodonticAnamnesisModule } from './orthodontic-anamnesis/orthodontic-anamnesis.module';
 
-// --- ¡NO IMPORTAMOS ENTIDADES AQUÍ! ---
-// (Se eliminaron todas las importaciones de Patient, Budget, Tooth, etc.)
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -44,37 +41,39 @@ import { OrthodonticAnamnesisModule } from './orthodontic-anamnesis/orthodontic-
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST'),
-        port: configService.get<number>('DB_PORT'),
-        username: configService.get<string>('DB_USERNAME'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_DATABASE'),
+      // --- FÁBRICA DE TypeORM CORREGIDA ---
+      useFactory: (configService: ConfigService) => {
         
-        // --- CORRECCIÓN CLAVE ---
-        // 1. autoLoadEntities le dice a TypeORM que cargue las entidades
-        //    registradas en cada módulo (ej. en PatientsModule)
-        autoLoadEntities: true,
-        // 2. Eliminamos el array 'entities: [...]' que causaba el conflicto
-        // --- FIN DE LA CORRECCIÓN ---
+        // 1. Detecta si estás en producción (Render)
+        const isProduction = configService.get<string>('NODE_ENV') === 'production';
 
-        synchronize: true,
-        ssl: {
-          rejectUnauthorized: false,
-        },
-      }),
+        // 2. Define la configuración de SSL
+        const sslConfig = isProduction 
+          ? { ssl: { rejectUnauthorized: false } } // Necesario para Render
+          : {}; // Vacío para localhost
+
+        // 3. Devuelve la configuración completa
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DB_HOST'),
+          port: configService.get<number>('DB_PORT'),
+          username: configService.get<string>('DB_USERNAME'),
+          password: configService.get<string>('DB_PASSWORD'),
+          database: configService.get<string>('DB_DATABASE'),
+          autoLoadEntities: true,
+          synchronize: true,
+          ...sslConfig, // 4. Aplica la configuración SSL aquí
+        };
+      },
     }),
+    // --- FIN DE LA CORRECCIÓN ---
 
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
-      // --- CORRECCIÓN DE RUTA DE DOCUMENTOS ---
-      // Cambiamos '/uploads' a '/' para que las URLs
-      // (ej. /documents/archivo.pdf) funcionen
       serveRoot: '/',
     }),
 
-    // Importa todos los módulos
+    // Módulos
     TenantsModule,
     UsersModule,
     AuthModule,
