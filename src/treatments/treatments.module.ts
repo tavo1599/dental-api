@@ -3,10 +3,9 @@ import { TreatmentsService } from './treatments.service';
 import { TreatmentsController } from './treatments.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Treatment } from './entities/treatment.entity';
-import { BudgetItem } from '../budgets/entities/budget-item.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Treatment, BudgetItem])],
+  imports: [TypeOrmModule.forFeature([Treatment])],
   controllers: [TreatmentsController],
   providers: [TreatmentsService],
 })
