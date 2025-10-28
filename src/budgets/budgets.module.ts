@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BudgetsService } from './budgets.service';
 import { BudgetsController } from './budgets.controller';
@@ -18,7 +18,7 @@ import { PatientsModule } from '../patients/patients.module'; // <-- ESTA IMPORT
       User,   
       Tenant
     ]),
-    PatientsModule // <-- Se importa aquí para usar PatientsService
+  forwardRef(() => PatientsModule) // <-- Importamos con forwardRef para evitar posibles ciclos
   ],
   controllers: [BudgetsController],
   providers: [BudgetsService],
