@@ -1,5 +1,6 @@
 import { 
   Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete, UseInterceptors 
+  // ¡No necesitamos @Query!
 } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -10,7 +11,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
-
+// ¡Ya no importamos BudgetsService!
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 
@@ -19,10 +20,12 @@ import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-hi
 @UseInterceptors(AuditInterceptor)
 export class PatientsController {
   
+  // --- CONSTRUCTOR CORREGIDO ---
+  // Se eliminó 'budgetsService' de aquí
   constructor(
     private readonly patientsService: PatientsService
   ) {}
-
+  // --- FIN DE LA CORRECCIÓN ---
 
   @Post()
   @AuditedAction('CREATE_PATIENT')
@@ -31,12 +34,19 @@ export class PatientsController {
     return this.patientsService.create(createPatientDto, tenantId);
   }
 
+  // --- findAll VUELVE A TU VERSIÓN ORIGINAL ---
   @Get()
   findAll(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.patientsService.findAll(tenantId);
   }
+  // --- FIN ---
 
+  // --- ENDPOINT DUPLICADO ELIMINADO ---
+  // La ruta 'GET :id/budgets' se eliminó
+  // --- FIN ---
+
+  // --- Endpoints para Historial Médico y Pediátrico ---
   @Get(':id/medical-history')
   getMedicalHistory(@Param('id') id: string, @Req() req) {
     return this.patientsService.getMedicalHistory(id, req.user.tenantId);
@@ -66,6 +76,7 @@ export class PatientsController {
   ) {
     return this.patientsService.updateOdontopediatricHistory(id, req.user.tenantId, dto);
   }
+  // --- Fin Endpoints Historial ---
 
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req) {
