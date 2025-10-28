@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Param, Patch, HttpCode, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Param, Patch, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
+import { UpdateDiscountDto } from './dto/update-discount.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { BudgetStatus } from './entities/budget.entity';
 
@@ -49,5 +50,19 @@ export class BudgetsController {
   @HttpCode(HttpStatus.OK)
   rejectBudget(@Param('id') id: string, @Req() req) {
     return this.budgetsService.updateStatus(id, req.user.tenantId, BudgetStatus.REJECTED);
+  }
+
+  @Patch(':id/discount')
+  @HttpCode(HttpStatus.OK)
+  setDiscount(@Param('id') id: string, @Body() body: UpdateDiscountDto, @Req() req) {
+    // Permite establecer o actualizar un descuento (monto fijo) para un presupuesto
+    return this.budgetsService.updateDiscount(id, req.user.tenantId, body.discountAmount);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id') id: string, @Req() req) {
+    // Elimina un presupuesto asegurando que pertenece al tenant del usuario
+    return this.budgetsService.remove(id, req.user.tenantId);
   }
 }

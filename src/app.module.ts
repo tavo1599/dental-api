@@ -54,6 +54,8 @@ import { GoogleCalendarModule } from './google-calendar/google-calendar.module';
 import { Tooth } from './odontogram/entities/tooth.entity';
 import { MedicalHistory } from './patients/entities/medical-history.entity';
 import { OdontopediatricHistory } from './patients/entities/odontopediatric-history.entity';
+import { OrthodonticAnamnesis } from './orthodontic-anamnesis/entities/orthodontic-anamnesis.entity';
+import { OrthodonticAnamnesisModule } from './orthodontic-anamnesis/orthodontic-anamnesis.module';
 import { ToothState } from './odontogram/entities/tooth-state.entity';
 
 
@@ -73,7 +75,7 @@ import { ToothState } from './odontogram/entities/tooth-state.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState],
+  entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticAnamnesis],
         synchronize: true, // ¡Solo para desarrollo!
       }),
     }),
@@ -81,8 +83,9 @@ import { ToothState } from './odontogram/entities/tooth-state.entity';
     ServeStaticModule.forRoot({
       // La carpeta física en el servidor
       rootPath: join(process.cwd(), 'uploads'),
-      // La URL base desde donde se sirven
-      serveRoot: '/', 
+      // Servimos los archivos estáticos bajo /uploads para que las URLs
+      // como /uploads/documents/archivo.pdf funcionen correctamente desde el frontend
+      serveRoot: '/uploads',
     }),
 
     // Importa todos los módulos
@@ -100,6 +103,8 @@ import { ToothState } from './odontogram/entities/tooth-state.entity';
     PeriodontogramModule,
     PrescriptionsModule,
     ExpensesModule,
+    OrthodonticAnamnesisModule,
+  // EventsModule removed (websockets disabled)
     CashManagementModule,
     ReportsModule,
     AuditModule,

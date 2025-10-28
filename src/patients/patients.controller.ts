@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete, UseInterceptors } from '@nestjs/common';
+import { 
+  Controller, Get, Post, Body, Param, UseGuards, Req, Patch, Delete, UseInterceptors 
+} from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -8,18 +10,19 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
-import { BudgetsService } from '../budgets/budgets.service';
-import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto'; // <-- Importa el nuevo DTO
+
+import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('patients')
 @UseInterceptors(AuditInterceptor)
 export class PatientsController {
+  
   constructor(
-    private readonly patientsService: PatientsService,
-    private readonly budgetsService: BudgetsService,
+    private readonly patientsService: PatientsService
   ) {}
+
 
   @Post()
   @AuditedAction('CREATE_PATIENT')
@@ -34,18 +37,11 @@ export class PatientsController {
     return this.patientsService.findAll(tenantId);
   }
 
-  @Get(':id/budgets')
-  findAllBudgetsForPatient(@Param('id') id: string, @Req() req) {
-    return this.budgetsService.findAllForPatient(id, req.user.tenantId);
-  }
-
-  // --- ENDPOINTS PARA HISTORIAL MÉDICO AÑADIDOS ---
-
   @Get(':id/medical-history')
   getMedicalHistory(@Param('id') id: string, @Req() req) {
     return this.patientsService.getMedicalHistory(id, req.user.tenantId);
   }
-
+  
   @Patch(':id/medical-history')
   @AuditedAction('UPDATE_MEDICAL_HISTORY')
   updateMedicalHistory(
@@ -55,7 +51,7 @@ export class PatientsController {
   ) {
     return this.patientsService.updateMedicalHistory(id, req.user.tenantId, dto);
   }
-
+  
   @Get(':id/odontopediatric-history')
   getOdontopediatricHistory(@Param('id') id: string, @Req() req) {
     return this.patientsService.getOdontopediatricHistory(id, req.user.tenantId);

@@ -8,5 +8,6 @@ import { AnnouncementsService } from './announcements.service';
   imports: [TypeOrmModule.forFeature([Announcement])],
   controllers: [AnnouncementsController],
   providers: [AnnouncementsService],
+  exports: [AnnouncementsService],
 })
 export class AnnouncementsModule {}

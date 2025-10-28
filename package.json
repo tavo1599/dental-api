@@ -2,11 +2,15 @@
   "name": "dental-api",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
+"scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node src/main.ts",
     "start:dev": "ts-node-dev --respawn src/main.ts",
-    "build": "nest build"
+    "build": "nest build",
+    
+    "typeorm": "npx typeorm -d src/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate",
+    "migration:run": "npm run typeorm -- migration:run"
   },
   "keywords": [],
   "author": "",

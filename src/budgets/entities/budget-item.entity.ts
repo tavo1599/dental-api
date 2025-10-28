@@ -15,11 +15,19 @@ export class BudgetItem {
   @Column({ default: 1 })
   quantity: number;
 
+  // Copia del nombre del tratamiento en el momento de crear el presupuesto.
+  // Esto preserva el historial si el tratamiento se edita o se elimina más tarde.
+  @Column({ nullable: true })
+  treatmentName?: string;
+
   // Cada item pertenece a UN presupuesto
   @ManyToOne(() => Budget, (budget) => budget.items, { onDelete: 'CASCADE' })
   budget: Budget;
 
-  // Cada item se refiere a UN tratamiento del catálogo
-  @ManyToOne(() => Treatment, { eager: true }) // eager carga los datos del tratamiento automáticamente
-  treatment: Treatment;
+  // Cada item puede referirse a UN tratamiento del catálogo, pero la relación
+  // es opcional y al eliminar el tratamiento la FK se pondrá a NULL.
+  // Además mantenemos 'treatmentName' y 'priceAtTimeOfBudget' para preservar
+  // el snapshot histórico del item.
+  @ManyToOne(() => Treatment, { eager: true, nullable: true, onDelete: 'SET NULL' })
+  treatment?: Treatment | null;
 }

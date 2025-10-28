@@ -13,15 +13,11 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // --- RUTAS ORDENADAS CORRECTAMENTE ---
-
-  // 1. La ruta específica va primero
   @Patch('change-password')
   changePassword(@Req() req, @Body() changePasswordDto: ChangePasswordDto) {
     return this.usersService.changePassword(req.user.sub, changePasswordDto);
   }
   
-  // 2. La ruta genérica va después
   @Patch(':id')
   @Roles(UserRole.ADMIN)
   @UseGuards(RolesGuard)

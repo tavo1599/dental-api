@@ -46,19 +46,23 @@ export class DashboardService {
       return acc;
     }, {} as Record<string, number>);
 
-    const topTreatments = monthlyPayments.reduce((acc, payment) => {
-        payment.budget?.items.forEach(item => {
-            const treatmentName = item.treatment.name;
-            if (!acc[treatmentName]) acc[treatmentName] = 0;
-            const itemTotal = Number(item.priceAtTimeOfBudget) * item.quantity;
-            const budgetTotal = Number(payment.budget.totalAmount);
-            // Asigna el pago proporcionalmente al costo del item dentro del presupuesto
-            if (budgetTotal > 0) {
-              acc[treatmentName] += (itemTotal / budgetTotal) * Number(payment.amount);
-            }
-        });
-        return acc;
-    }, {} as Record<string, number>);
+  const topTreatments = monthlyPayments.reduce((acc, payment) => {
+    const items = payment.budget?.items ?? [];
+    items.forEach(item => {
+      // Use snapshot name if available, fallback to related treatment name, otherwise a default label
+      const treatmentName = item.treatmentName || item.treatment?.name || 'Sin Tratamiento';
+      if (!acc[treatmentName]) acc[treatmentName] = 0;
+      const itemPrice = Number(item.priceAtTimeOfBudget ?? 0);
+      const itemQty = Number(item.quantity ?? 1);
+      const itemTotal = itemPrice * itemQty;
+      const budgetTotal = Number(payment.budget?.totalAmount ?? 0);
+      // Asigna el pago proporcionalmente al costo del item dentro del presupuesto
+      if (budgetTotal > 0 && Number(payment.amount) > 0) {
+        acc[treatmentName] += (itemTotal / budgetTotal) * Number(payment.amount);
+      }
+    });
+    return acc;
+  }, {} as Record<string, number>);
 
     const lastMonthPayments = await this.paymentRepository.find({ where: { tenant: { id: tenantId }, paymentDate: Between(lastMonthStart, lastMonthEnd) } });
     const lastMonthIncome = lastMonthPayments.reduce((sum, p) => sum + Number(p.amount), 0);
