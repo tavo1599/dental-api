@@ -55,6 +55,7 @@ import { Tooth } from './odontogram/entities/tooth.entity';
 import { MedicalHistory } from './patients/entities/medical-history.entity';
 import { OdontopediatricHistory } from './patients/entities/odontopediatric-history.entity';
 import { ToothState } from './odontogram/entities/tooth-state.entity';
+import { OrthodonticHistory } from './patients/entities/orthodontic-history.entity';
 
 
 @Module({
@@ -73,7 +74,7 @@ import { ToothState } from './odontogram/entities/tooth-state.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState],
+        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory,],
         synchronize: true, // ¡Solo para desarrollo!
       }),
     }),

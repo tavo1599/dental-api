@@ -10,6 +10,7 @@ import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto'; // <-- Importa el nuevo DTO
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
+import { UpdateOrthodonticHistoryDto } from './dto/update-orthodontic-history.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('patients')
@@ -62,6 +63,21 @@ export class PatientsController {
     @Body() dto: UpdateOdontopediatricHistoryDto,
   ) {
     return this.patientsService.updateOdontopediatricHistory(id, req.user.tenantId, dto);
+  }
+
+  @Get(':id/orthodontic-anamnesis')
+  getOrthodonticHistory(@Param('id') id: string, @Req() req) {
+    return this.patientsService.getOrthodonticHistory(id, req.user.tenantId);
+  }
+
+  @Patch(':id/orthodontic-anamnesis')
+  @AuditedAction('UPDATE_ORTHODONTIC_HISTORY') // <-- Buena práctica
+  updateOrthodonticHistory(
+    @Param('id') id: string,
+    @Req() req,
+    @Body() dto: UpdateOrthodonticHistoryDto, // <-- Usa el DTO que creamos
+  ) {
+    return this.patientsService.updateOrthodonticHistory(id, req.user.tenantId, dto);
   }
 
   @Get(':id')

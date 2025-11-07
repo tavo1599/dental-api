@@ -8,6 +8,8 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
+import { OrthodonticHistory } from './entities/orthodontic-history.entity';
+import { UpdateOrthodonticHistoryDto } from './dto/update-orthodontic-history.dto';
 
 @Injectable()
 export class PatientsService {
@@ -18,6 +20,8 @@ export class PatientsService {
     private readonly medicalHistoryRepository: Repository<MedicalHistory>,
     @InjectRepository(OdontopediatricHistory) // <-- 3. Inyecta el nuevo repositorio
     private readonly odontopediatricHistoryRepository: Repository<OdontopediatricHistory>,
+    @InjectRepository(OrthodonticHistory)
+    private readonly orthodonticHistoryRepository: Repository<OrthodonticHistory>,
   ) {}
 
   async create(createPatientDto: CreatePatientDto, tenantId: string) {
@@ -125,6 +129,60 @@ export class PatientsService {
 
     Object.assign(history, dto);
     return this.odontopediatricHistoryRepository.save(history);
+  }
+
+  async getOrthodonticHistory(patientId: string, tenantId: string): Promise<OrthodonticHistory> {
+    // Primero, verificamos que el paciente exista y pertenezca al tenant
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId, tenant: { id: tenantId } },
+      relations: ['orthodonticHistory'], // <-- Cargamos la relación
+    });
+
+    if (!patient) {
+      throw new NotFoundException(`Paciente con ID ${patientId} no encontrado.`);
+    }
+
+    // patient.orthodonticHistory puede ser null si aún no se ha creado
+    return patient.orthodonticHistory;
+  }
+
+  /**
+   * Actualiza o crea la anamnesis de ortodoncia de un paciente.
+   * Esta lógica "upsert" (update/insert) es la más robusta.
+   */
+  async updateOrthodonticHistory(
+    patientId: string,
+    tenantId: string,
+    dto: UpdateOrthodonticHistoryDto,
+  ): Promise<OrthodonticHistory> {
+    
+    // 1. Validar que el paciente existe y pertenece al tenant
+    const patient = await this.patientRepository.findOneBy({ 
+      id: patientId, 
+      tenant: { id: tenantId } 
+    });
+
+    if (!patient) {
+      throw new NotFoundException(`Paciente con ID ${patientId} no encontrado.`);
+    }
+
+    // 2. Buscar si ya existe una anamnesis para este paciente
+    let history = await this.orthodonticHistoryRepository.findOne({
+      where: { patient: { id: patientId } },
+    });
+
+    if (!history) {
+      // 3.A. Si NO existe: creamos una nueva instancia
+      history = this.orthodonticHistoryRepository.create(dto);
+      history.patient = patient; // <-- La vinculamos al paciente
+    } else {
+      // 3.B. Si SÍ existe: fusionamos los cambios del DTO
+      // merge(entidad_existente, datos_nuevos)
+      history = this.orthodonticHistoryRepository.merge(history, dto);
+    }
+
+    // 4. Guardamos la entidad (sea nueva o actualizada)
+    return this.orthodonticHistoryRepository.save(history);
   }
 
 }

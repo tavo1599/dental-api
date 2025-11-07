@@ -4,6 +4,7 @@ import { ClinicalHistoryEntry } from '../../clinical-history/entities/clinical-h
 import { Appointment } from '../../appointments/entities/appointment.entity'; // <-- Importa la entidad Appointment
 import { OdontopediatricHistory } from './odontopediatric-history.entity';
 import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDateColumn, OneToMany, Unique } from 'typeorm';
+import { OrthodonticHistory } from './orthodontic-history.entity';
 
 export enum Gender {
   MALE = 'male',
@@ -82,6 +83,9 @@ export class Patient {
 
   @OneToOne(() => OdontopediatricHistory, history => history.patient, { cascade: true })
   odontopediatricHistory: OdontopediatricHistory;
+
+  @OneToOne(() => OrthodonticHistory, history => history.patient, { cascade: true })
+  orthodonticHistory: OrthodonticHistory;
 
   // Las entradas de historial (se añaden en cada cita)
   @OneToMany(() => ClinicalHistoryEntry, (entry) => entry.patient)
