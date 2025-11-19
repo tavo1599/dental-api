@@ -1,8 +1,7 @@
 import { Controller, Post, Req, Patch, Body, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+// Se eliminaron diskStorage y extname ya que no guardamos en disco local
 import { TenantsService } from './tenants.service';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -17,16 +16,10 @@ export class TenantsController {
   @Post('logo')
   @Roles(UserRole.ADMIN) // Solo el admin de la clínica puede cambiar el logo
   @UseGuards(RolesGuard)
-  @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads/logos',
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${extname(file.originalname)}`);
-      },
-    }),
-  }))
+  // Utilizamos MemoryStorage por defecto (quitando 'storage' de Multer)
+  @UseInterceptors(FileInterceptor('file')) 
   uploadLogo(@Req() req, @UploadedFile() file: Express.Multer.File) {
+    // El servicio se encarga de procesar el buffer y subirlo a R2
     return this.tenantsService.updateLogo(req.user.tenantId, file);
   }
 
@@ -36,5 +29,4 @@ export class TenantsController {
   updateProfile(@Req() req, @Body() dto: UpdateTenantDto) {
     return this.tenantsService.updateProfile(req.user.tenantId, dto);
   }
-
 }

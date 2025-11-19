@@ -29,6 +29,12 @@ export class ClinicalHistoryEntry {
   @Column('text', { nullable: true })
   indications?: string;
 
+  @Column('text', { nullable: true, comment: 'Plan o acciones a realizar en la próxima cita' })
+  nextAppointmentPlan?: string; 
+
+  @Column({ type: 'timestamp', nullable: true, comment: 'Fecha sugerida para la próxima cita' })
+  nextAppointmentDate?: Date;
+
   // --- CORRECCIÓN AQUÍ ---
   @ManyToOne(() => Patient, (patient) => patient.clinicalHistory, { onDelete: 'CASCADE' })
   patient: Patient;

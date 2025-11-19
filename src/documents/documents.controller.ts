@@ -1,12 +1,12 @@
-import { Controller, Post, Param, UploadedFile, UseInterceptors, UseGuards, Req, Get, Body, Delete, HttpCode, HttpStatus} from '@nestjs/common';
+import { Controller, Post, Param, UploadedFile, UseInterceptors, UseGuards, Req, Get, Body, Delete, HttpCode, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
 import { AuthGuard } from '@nestjs/passport';
 import { DocumentsService } from './documents.service';
 import { SignConsentDto } from './dto/sign-consent.dto';
-import { Roles } from '../auth/decorators/roles.decorator'; // <-- Importa Roles
-import { UserRole } from '../users/entities/user.entity'; // <-- Importa UserRole
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { memoryStorage } from 'multer'; // <-- IMPORTANTE: Importamos memoryStorage explícitamente
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('documents')
@@ -14,20 +14,19 @@ export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Post('upload/:patientId')
+  // --- CAMBIO CRÍTICO: Forzamos memoryStorage aquí ---
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads/documents',
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        return cb(null, `${randomName}-${file.originalname}`);
-      },
-    }),
-  }))
+    storage: memoryStorage() // Esto garantiza que NO se guarde en disco
+  })) 
   uploadFile(
     @Param('patientId') patientId: string,
     @UploadedFile() file: Express.Multer.File,
     @Req() req,
   ) {
+    // Verificación de seguridad: Si el buffer llega vacío, lanzamos error antes de subir
+    if (!file || !file.buffer) {
+      throw new Error('El archivo no se cargó correctamente en memoria.');
+    }
     return this.documentsService.saveDocument(file, patientId, req.user.tenantId);
   }
 
@@ -43,18 +42,17 @@ export class DocumentsController {
     return this.documentsService.createSignedConsent(
       patientId,
       req.user.tenantId,
-      req.user, // Pasamos el objeto 'user' completo
+      req.user,
       templateId,
       signatureBase64,
     );
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.ASSISTANT) // Solo Admin o Asistente pueden borrar
+  @Roles(UserRole.ADMIN, UserRole.ASSISTANT)
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @Req() req) {
     return this.documentsService.remove(id, req.user.tenantId);
   }
-
 }

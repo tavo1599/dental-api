@@ -1,64 +1,89 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { Repository } from 'typeorm';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import * as sharp from 'sharp';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+// Importamos cliente R2 y comandos S3
+import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../config/r2.config'; // Asegúrate de que esta ruta sea correcta
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 @Injectable()
 export class TenantsService {
+
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
-  ) {}
+  ) {
+    // No necesitamos inicializar el cliente S3 aquí, ya lo hace r2.config
+  }
+
+  // --- HELPER: Subir Buffer a R2 ---
+  private async uploadToR2(buffer: Buffer, key: string, mimeType: string): Promise<string> {
+    const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key, // La ruta dentro del bucket
+      Body: buffer,
+      ContentType: mimeType,
+      // Si R2 requiere caché o headers adicionales, se añaden aquí
+    });
+    
+    // Enviamos el comando a R2
+    await r2Client.send(command);
+    
+    // Devolvemos la URL pública
+    return `${R2_PUBLIC_URL}/${key}`;
+  }
 
   async updateLogo(tenantId: string, file: Express.Multer.File) {
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
-    if (!tenant) {
-      await fs.unlink(file.path);
-      throw new NotFoundException('Clínica no encontrada.');
-    }
-    const oldLogoUrl = tenant.logoUrl;
+    if (!tenant) throw new NotFoundException('Clínica no encontrada.');
+    if (!file) throw new BadRequestException('No se envió ningún archivo');
 
     try {
-      const webpFilename = `${file.filename.split('.')[0]}.webp`;
-      const webpPath = path.join(file.destination, webpFilename);
-
-      await sharp(file.path)
+      // 1. Procesar imagen con SHARP (en memoria)
+      const processedBuffer = await sharp(file.buffer)
         .resize({ width: 200, withoutEnlargement: true })
         .webp({ quality: 80 })
-        .toFile(webpPath);
-      
-      await fs.unlink(file.path);
+        .toBuffer();
 
-      const newLogoUrl = `/logos/${webpFilename}`;
-      await this.tenantRepository.update(tenantId, { logoUrl: newLogoUrl });
-      
-      if (oldLogoUrl) {
-        // --- CORRECCIÓN CLAVE AQUÍ ---
-        // Quitamos la barra inicial de la URL guardada
-        const oldLogoRelativePath = oldLogoUrl.startsWith('/') ? oldLogoUrl.substring(1) : oldLogoUrl;
-        const oldLogoFilePath = path.join(process.cwd(), 'uploads', oldLogoRelativePath);
-        
+      // 2. Definir ruta en la nube
+      const fileName = `logo_${Date.now()}.webp`;
+      const cloudPath = `tenants/${tenantId}/logo/${fileName}`;
+
+      // 3. Subir a R2
+      const publicUrl = await this.uploadToR2(processedBuffer, cloudPath, 'image/webp');
+
+      // 4. Borrar el logo ANTIGUO de R2 (si existe)
+      if (tenant.logoUrl && tenant.logoUrl.startsWith(R2_PUBLIC_URL)) {
         try {
-          await fs.unlink(oldLogoFilePath);
-          console.log(`Logo antiguo eliminado: ${oldLogoFilePath}`);
-        } catch (error) {
-          console.warn(`No se pudo eliminar el logo antiguo: ${oldLogoFilePath}`, error);
+          // Extraemos la clave (Key) del archivo desde la URL pública
+          let oldKey = tenant.logoUrl.replace(R2_PUBLIC_URL, '');
+          if (oldKey.startsWith('/')) oldKey = oldKey.substring(1);
+
+          const deleteCommand = new DeleteObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: oldKey
+          });
+          await r2Client.send(deleteCommand);
+          console.log(`Logo antiguo (${oldKey}) eliminado de R2.`);
+        } catch (deleteError) {
+          console.warn('No se pudo eliminar el logo antiguo de R2:', deleteError);
         }
       }
+
+      // 5. Actualizar base de datos con la nueva URL de R2
+      await this.tenantRepository.update(tenantId, { logoUrl: publicUrl });
       
-      return { logoUrl: newLogoUrl };
+      return { logoUrl: publicUrl };
 
     } catch (error) {
-      throw new InternalServerErrorException('Error al procesar la imagen.');
+      console.error('Error actualizando logo en R2:', error);
+      throw new InternalServerErrorException('Error al procesar o subir la imagen del logo.');
     }
   }
 
-
-    async updateProfile(tenantId: string, dto: UpdateTenantDto) {
+  async updateProfile(tenantId: string, dto: UpdateTenantDto) {
     await this.tenantRepository.update(tenantId, dto);
     return this.tenantRepository.findOneBy({ id: tenantId });
   }

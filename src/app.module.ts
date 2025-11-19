@@ -79,13 +79,6 @@ import { OrthodonticHistory } from './patients/entities/orthodontic-history.enti
       }),
     }),
 
-    ServeStaticModule.forRoot({
-      // La carpeta física en el servidor
-      rootPath: join(process.cwd(), 'uploads'),
-      // La URL base desde donde se sirven
-      serveRoot: '/', 
-    }),
-
     // Importa todos los módulos
     TenantsModule,
     UsersModule,
