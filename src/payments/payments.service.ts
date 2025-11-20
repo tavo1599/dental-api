@@ -4,9 +4,6 @@ import { DataSource, Repository } from 'typeorm';
 import { Budget, BudgetStatus } from '../budgets/entities/budget.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { Payment } from './entities/payment.entity';
-// Ya no necesitamos fs ni path para leer logos
-// import * as fs from 'fs/promises'; 
-// import * as path from 'path';
 
 @Injectable()
 export class PaymentsService {
@@ -66,10 +63,9 @@ export class PaymentsService {
     if (!payment) {
       throw new NotFoundException(`Payment with ID "${id}" not found.`);
     }
-
-    // --- CORRECCIÓN: ELIMINADA LÓGICA DE LECTURA LOCAL ---
-    // Ya no intentamos leer el archivo del disco ni convertirlo a Base64.
-    // Simplemente devolvemos la URL (sea local o remota), y el frontend se encarga.
+    
+    // SE ELIMINÓ LA LÓGICA DE 'fs.readFile' PARA EL LOGO.
+    // El frontend se encarga de cargar la imagen desde la URL (Cloudflare).
     
     return payment;
   }

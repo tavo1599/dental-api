@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 import { Patient } from '../../patients/entities/patient.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 
@@ -15,6 +15,9 @@ export class PatientDocument {
 
   @Column()
   fileType: string; // ej. 'application/pdf', 'image/jpeg'
+
+  @CreateDateColumn()
+  createdAt: Date;
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
   patient: Patient;
