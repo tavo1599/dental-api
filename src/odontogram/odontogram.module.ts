@@ -5,6 +5,7 @@ import { OdontogramService } from './odontogram.service';
 import { ToothSurfaceState } from './entities/tooth-surface-state.entity';
 import { Tooth } from './entities/tooth.entity';
 import { ToothState } from './entities/tooth-state.entity'; // <-- 1. Importa la nueva entidad
+import { DentalBridge } from './entities/dental-bridge.entity'; 
 import { PatientsModule } from '../patients/patients.module';
 
 @Module({
@@ -12,7 +13,8 @@ import { PatientsModule } from '../patients/patients.module';
     TypeOrmModule.forFeature([
       ToothSurfaceState, 
       Tooth, 
-      ToothState // <-- 2. Añade la nueva entidad aquí
+      ToothState,
+      DentalBridge
     ]),
     PatientsModule,
   ],

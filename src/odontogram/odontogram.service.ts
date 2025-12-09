@@ -4,8 +4,10 @@ import { Repository } from 'typeorm';
 import { ToothSurfaceState } from './entities/tooth-surface-state.entity';
 import { Tooth } from './entities/tooth.entity'; // Importa la nueva entidad
 import { ToothState } from './entities/tooth-state.entity';
+import { DentalBridge } from './entities/dental-bridge.entity';
 import { UpdateOdontogramDto } from './dto/update-odontogram.dto';
 import { CreateToothStateDto } from './dto/create-tooth-state.dto';
+import { CreateBridgeDto } from './dto/create-bridge.dto';
 import { PatientsService } from '../patients/patients.service';
 import { ToothStatus } from '../types/tooth-status.enum';
 
@@ -18,6 +20,8 @@ export class OdontogramService {
     private readonly toothRepository: Repository<Tooth>,
     @InjectRepository(ToothState) // <-- 3. Inyecta el nuevo repositorio
     private readonly toothStateRepository: Repository<ToothState>,
+    @InjectRepository(DentalBridge) // <-- Inyectar
+    private readonly bridgeRepository: Repository<DentalBridge>,
     private readonly patientsService: PatientsService, // Inyecta PatientsService
   ) {}
 
@@ -36,8 +40,12 @@ export class OdontogramService {
       where: { patient: { id: patientId }, tenant: { id: tenantId } },
     });
 
+    const bridges = await this.bridgeRepository.find({
+      where: { patient: { id: patientId }, tenant: { id: tenantId } },
+    });
+
     // 5. Devuelve todo junto
-    return { wholeTeeth, surfaces, toothStates };
+    return { wholeTeeth, surfaces, toothStates, bridges };
   }
 
 async updateOdontogram(dto: UpdateOdontogramDto, patientId: string, tenantId: string) {
@@ -145,4 +153,21 @@ async updateOdontogram(dto: UpdateOdontogramDto, patientId: string, tenantId: st
       throw new NotFoundException('Estado del diente no encontrado.');
     }
   }
+
+  async saveBridge(dto: CreateBridgeDto, patientId: string, tenantId: string) {
+    await this.patientsService.findOne(patientId, tenantId);
+    
+    const bridge = this.bridgeRepository.create({
+      ...dto,
+      patient: { id: patientId },
+      tenant: { id: tenantId },
+    });
+    return this.bridgeRepository.save(bridge);
+  }
+
+  async removeBridge(bridgeId: string, tenantId: string) {
+    const result = await this.bridgeRepository.delete({ id: bridgeId, tenant: { id: tenantId } });
+    if (result.affected === 0) throw new NotFoundException('Puente no encontrado.');
+  }
+
 }
