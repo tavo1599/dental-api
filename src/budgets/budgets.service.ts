@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Patient } from '../patients/entities/patient.entity';
 import { Treatment } from '../treatments/entities/treatment.entity';
 import { Budget, BudgetStatus } from './entities/budget.entity';
@@ -20,49 +20,76 @@ export class BudgetsService {
     private readonly budgetItemRepository: Repository<BudgetItem>,
   ) {}
 
-  // --- MÉTODO 'create' CORREGIDO Y SOPORTANDO DESCUENTO ---
   async create(createBudgetDto: CreateBudgetDto, tenantId: string, doctorId: string) {
-    const { patientId, items: itemsDto, discountAmount = 0 } = createBudgetDto as any;
+    // 1. Extraer todos los campos, incluyendo los nuevos de ortodoncia
+    const { 
+      patientId, 
+      items: itemsDto, 
+      discountAmount = 0,
+      isOrthodontic = false,
+      orthoType,
+      baseTreatmentCost = 0,
+      initialPayment = 0,
+      installments = 0,
+      monthlyPayment = 0
+    } = createBudgetDto as any;
 
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
     if (!patient) throw new NotFoundException('Paciente no encontrado');
 
-    let totalAmount = 0;
+    // 2. Calcular el total de los ITEMS (Tratamientos/Aparatología)
+    let itemsTotal = 0;
     const budgetItems: BudgetItem[] = [];
 
     for (const itemDto of itemsDto) {
       const treatment = await this.treatmentRepository.findOneBy({ id: itemDto.treatmentId, tenant: { id: tenantId } });
       if (treatment) {
-        const itemTotal = Number(treatment.price) * Number(itemDto.quantity);
-        totalAmount += itemTotal;
+        // Usamos el precio enviado desde el frontend si existe (para congelar el precio), o el actual
+        const price = itemDto.priceAtTimeOfBudget !== undefined ? Number(itemDto.priceAtTimeOfBudget) : Number(treatment.price);
+        const quantity = Number(itemDto.quantity);
+        
+        itemsTotal += price * quantity;
 
         const newBudgetItem = this.budgetItemRepository.create({
           treatment,
-          quantity: itemDto.quantity,
-          priceAtTimeOfBudget: treatment.price,
+          quantity: quantity,
+          priceAtTimeOfBudget: price,
         });
         budgetItems.push(newBudgetItem);
       }
     }
 
-    const discount = Number(discountAmount) || 0;
-    const finalAmount = Math.max(0, Number(totalAmount) - discount);
+    // 3. Calcular el TOTAL GENERAL
+    let totalAmount = itemsTotal;
 
+    // Si es ortodoncia, sumamos el Costo Base (Honorarios) a los items
+    if (isOrthodontic) {
+      totalAmount += Number(baseTreatmentCost);
+    }
+
+    // 4. Calcular Monto Final con Descuento
+    const discount = Number(discountAmount) || 0;
+    const finalAmount = Math.max(0, totalAmount - discount);
+
+    // 5. Crear la entidad con TODOS los datos
     const newBudget = this.budgetRepository.create({
       patient,
       tenant: { id: tenantId },
-      doctor: { id: doctorId }, // Ahora sí existe doctorId
+      doctor: { id: doctorId },
       totalAmount,
       discountAmount: discount,
       finalAmount,
       items: budgetItems,
+      // Campos de Ortodoncia
+      isOrthodontic,
+      orthoType,
+      baseTreatmentCost: Number(baseTreatmentCost),
+      initialPayment: Number(initialPayment),
+      installments: Number(installments),
+      monthlyPayment: Number(monthlyPayment),
     });
 
-    const saved = await this.budgetRepository.save(newBudget);
-
-    // Previously emitted a websocket event here; websockets were removed.
-
-    return saved;
+    return this.budgetRepository.save(newBudget);
   }
 
   async findAllForPatient(patientId: string, tenantId: string, doctorId?: string) {
@@ -93,7 +120,7 @@ export class BudgetsService {
     return this.budgetRepository.save(budget);
   }
 
-  // Permite actualizar el descuento de un presupuesto y recalcular el monto final
+  // Permite actualizar el descuento y recalcular el monto final
   async updateDiscount(budgetId: string, tenantId: string, discountAmount: number) {
     const budget = await this.budgetRepository.findOneBy({ id: budgetId, tenant: { id: tenantId } });
 
@@ -103,18 +130,26 @@ export class BudgetsService {
 
     budget.discountAmount = Number(discountAmount) || 0;
 
-    // Asegurarnos de tener el subtotal; si no, cargar items y calcularlo
+    // Recalcular total si es necesario (seguridad)
+    // Si por alguna razón totalAmount estuviera en 0 o corrupto, lo reconstruimos
     if (!budget.totalAmount || Number(budget.totalAmount) === 0) {
       const loaded = await this.budgetRepository.findOne({
         where: { id: budgetId, tenant: { id: tenantId } },
         relations: ['items'],
       });
+      
       if (loaded) {
-        let subtotal = 0;
+        let subtotalItems = 0;
         for (const it of loaded.items) {
-          subtotal += Number(it.priceAtTimeOfBudget) * Number(it.quantity);
+          subtotalItems += Number(it.priceAtTimeOfBudget) * Number(it.quantity);
         }
-        budget.totalAmount = subtotal;
+        
+        // CORRECCIÓN: Si es ortodoncia, sumar el costo base al recalcular
+        if (loaded.isOrthodontic) {
+           budget.totalAmount = subtotalItems + Number(loaded.baseTreatmentCost || 0);
+        } else {
+           budget.totalAmount = subtotalItems;
+        }
       }
     }
 
@@ -123,7 +158,6 @@ export class BudgetsService {
     return this.budgetRepository.save(budget);
   }
 
-  // Elimina un presupuesto por id (asegurando tenant)
   async remove(budgetId: string, tenantId: string) {
     const budget = await this.budgetRepository.findOne({
       where: { id: budgetId, tenant: { id: tenantId } },
@@ -134,7 +168,6 @@ export class BudgetsService {
       throw new NotFoundException(`Budget with ID "${budgetId}" not found.`);
     }
 
-    // Al usar remove se respetan los cascades y se eliminan items relacionados
     await this.budgetRepository.remove(budget);
     return;
   }

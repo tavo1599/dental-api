@@ -1,16 +1,19 @@
 import { Type } from 'class-transformer';
 import { 
   IsArray, 
+  IsBoolean,
+  IsIn,
+  IsInt,
   IsNotEmpty, 
   IsNumber, 
   IsOptional, 
+  IsString,
   IsUUID, 
   Min, 
   ValidateNested 
 } from 'class-validator';
 
-// Esta clase anidada define la forma de cada 'item'
-// El DTO espera que cada item tenga estas 3 propiedades
+// DTO para los items individuales (Aparatología/Tratamientos)
 class BudgetItemDto {
   @IsUUID()
   @IsNotEmpty()
@@ -22,7 +25,7 @@ class BudgetItemDto {
 
   @IsNumber()
   @Min(0)
-  priceAtTimeOfBudget: number; // <-- Tu formulario ya envía esto
+  priceAtTimeOfBudget: number;
 }
 
 export class CreateBudgetDto {
@@ -36,16 +39,46 @@ export class CreateBudgetDto {
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => BudgetItemDto) // <-- Le dice a NestJS que use la clase de arriba
+  @Type(() => BudgetItemDto)
   items: BudgetItemDto[];
 
-  // El DTO espera el subtotal
   @IsNumber()
   @Min(0)
-  totalAmount: number; // <-- Tu formulario ya envía esto
+  totalAmount: number;
 
   @IsNumber()
   @Min(0)
   @IsOptional()
-  discountAmount?: number; // <-- Tu formulario ya envía esto
+  discountAmount?: number;
+
+  // --- NUEVOS CAMPOS DE ORTODONCIA (VALIDACIÓN) ---
+
+  @IsOptional()
+  @IsBoolean()
+  isOrthodontic?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['preventive', 'corrective'])
+  orthoType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  baseTreatmentCost?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  initialPayment?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  installments?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  monthlyPayment?: number;
 }

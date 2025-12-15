@@ -16,6 +16,7 @@ export class PaymentsService {
   ) {}
 
   async create(dto: CreatePaymentDto, budgetId: string, userId: string, tenantId: string) {
+    // Usamos transacción para asegurar consistencia
     return this.dataSource.transaction(async (manager) => {
       const budgetRepo = manager.getRepository(Budget);
       const paymentRepo = manager.getRepository(Payment);
@@ -23,11 +24,20 @@ export class PaymentsService {
       const budget = await budgetRepo.findOneBy({ id: budgetId, tenant: { id: tenantId } });
       if (!budget) throw new NotFoundException(`Budget with ID "${budgetId}" not found.`);
 
-      const remainingBalance = budget.totalAmount - budget.paidAmount;
-      if (dto.amount > remainingBalance) {
-        throw new BadRequestException(`Payment amount exceeds remaining balance of ${remainingBalance}`);
+      // --- CORRECCIÓN LÓGICA DE SALDO Y ESTADO ---
+      
+      // 1. Calculamos el monto REAL a pagar (Total - Descuento)
+      const totalToPay = Number(budget.totalAmount) - (Number(budget.discountAmount) || 0);
+      
+      // 2. Calculamos el saldo pendiente real
+      const remainingBalance = totalToPay - Number(budget.paidAmount);
+      
+      // Validación: Evitar que paguen más de lo que deben (con pequeña tolerancia por decimales)
+      if (Number(dto.amount) > remainingBalance + 0.01) {
+        throw new BadRequestException(`El pago excede el saldo pendiente real de S/. ${remainingBalance.toFixed(2)}`);
       }
 
+      // 3. Crear el pago
       const newPayment = paymentRepo.create({
         ...dto,
         budget: { id: budgetId },
@@ -36,12 +46,16 @@ export class PaymentsService {
       });
       await paymentRepo.save(newPayment);
 
+      // 4. Actualizar acumulado
       budget.paidAmount = Number(budget.paidAmount) + Number(dto.amount);
-      if (budget.paidAmount >= budget.totalAmount) {
+
+      // 5. Determinar estado comparando con el TOTAL CON DESCUENTO
+      if (budget.paidAmount >= (totalToPay - 0.01)) {
         budget.status = BudgetStatus.COMPLETED;
       } else {
         budget.status = BudgetStatus.IN_PROGRESS;
       }
+      
       await budgetRepo.save(budget);
 
       return newPayment;
@@ -63,9 +77,6 @@ export class PaymentsService {
     if (!payment) {
       throw new NotFoundException(`Payment with ID "${id}" not found.`);
     }
-    
-    // SE ELIMINÓ LA LÓGICA DE 'fs.readFile' PARA EL LOGO.
-    // El frontend se encarga de cargar la imagen desde la URL (Cloudflare).
     
     return payment;
   }

@@ -2,7 +2,8 @@ import { Controller, Get, Post, Body, UseGuards, Req, Param, Patch, Delete, Http
 import { AuthGuard } from '@nestjs/passport';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
-import { UpdateDiscountDto } from './dto/update-discount.dto';
+// Asegúrate de importar tu DTO de actualización si lo tienes separado, o usa Partial<CreateBudgetDto>
+// import { UpdateDiscountDto } from './dto/update-discount.dto'; 
 import { UserRole } from '../users/entities/user.entity';
 import { BudgetStatus } from './entities/budget.entity';
 
@@ -14,6 +15,7 @@ export class BudgetsController {
   @Post()
   create(@Body() createBudgetDto: CreateBudgetDto, @Req() req) {
     const { tenantId, sub: doctorId } = req.user;
+    // Pasamos el ID del usuario actual como creador (doctor)
     return this.budgetsService.create(createBudgetDto, tenantId, doctorId);
   }
 
@@ -54,9 +56,10 @@ export class BudgetsController {
 
   @Patch(':id/discount')
   @HttpCode(HttpStatus.OK)
-  setDiscount(@Param('id') id: string, @Body() body: UpdateDiscountDto, @Req() req) {
+  setDiscount(@Param('id') id: string, @Body('discountAmount') discountAmount: number, @Req() req) {
     // Permite establecer o actualizar un descuento (monto fijo) para un presupuesto
-    return this.budgetsService.updateDiscount(id, req.user.tenantId, body.discountAmount);
+    // Nota: Si usas un DTO específico, cámbialo aquí. Si no, @Body('prop') funciona bien.
+    return this.budgetsService.updateDiscount(id, req.user.tenantId, discountAmount);
   }
 
   @Delete(':id')

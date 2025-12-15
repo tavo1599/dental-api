@@ -1,10 +1,12 @@
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { MedicalHistory } from './medical-history.entity';
-import { ClinicalHistoryEntry } from '../../clinical-history/entities/clinical-history-entry.entity'; // <-- Importa la entidad que faltaba
-import { Appointment } from '../../appointments/entities/appointment.entity'; // <-- Importa la entidad Appointment
+import { ClinicalHistoryEntry } from '../../clinical-history/entities/clinical-history-entry.entity'; 
+import { Appointment } from '../../appointments/entities/appointment.entity'; 
 import { OdontopediatricHistory } from './odontopediatric-history.entity';
 import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDateColumn, OneToMany, Unique } from 'typeorm';
 import { OrthodonticHistory } from './orthodontic-history.entity';
+// --- 1. IMPORTAR LA ENTIDAD BUDGET ---
+import { Budget } from '../../budgets/entities/budget.entity';
 
 export enum Gender {
   MALE = 'male',
@@ -77,7 +79,6 @@ export class Patient {
 
   // --- RELACIONES ---
 
-  // La anamnesis (se llena una vez)
   @OneToOne(() => MedicalHistory, (medicalHistory) => medicalHistory.patient, { cascade: true })
   medicalHistory: MedicalHistory;
 
@@ -87,11 +88,13 @@ export class Patient {
   @OneToOne(() => OrthodonticHistory, history => history.patient, { cascade: true })
   orthodonticHistory: OrthodonticHistory;
 
-  // Las entradas de historial (se añaden en cada cita)
   @OneToMany(() => ClinicalHistoryEntry, (entry) => entry.patient)
   clinicalHistory: ClinicalHistoryEntry[];
 
-  // Las citas del paciente
   @OneToMany(() => Appointment, (appointment) => appointment.patient)
   appointments: Appointment[];
+
+  // --- 2. RELACIÓN CON PRESUPUESTOS (NUEVA) ---
+  @OneToMany(() => Budget, (budget) => budget.patient)
+  budgets: Budget[];
 }
