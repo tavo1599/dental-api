@@ -20,7 +20,7 @@ export class ToothState {
   abbreviation: string; // Ej: "PP"
 
   @Column()
-  status: 'bueno' | 'malo'; // Estado conmutable
+  status: 'bueno' | 'malo' | 'evolucionado'; 
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
   patient: Patient;

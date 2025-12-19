@@ -19,6 +19,6 @@ export class CreateToothStateDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsIn(['bueno', 'malo']) // Solo permite estos dos valores
-  status: 'bueno' | 'malo';
+  @IsIn(['bueno', 'malo', 'evolucionado']) 
+  status: 'bueno' | 'malo' | 'evolucionado';
 }
