@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Patient } from '../../patients/entities/patient.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { OdontogramRecordType } from '../enums/record-type.enum';
 
 @Entity({ name: 'dental_bridges' })
 export class DentalBridge {
@@ -18,6 +19,13 @@ export class DentalBridge {
 
   @Column({ default: 'red' })
   color: string; // 'red', 'blue'
+
+  @Column({
+    type: 'enum',
+    enum: OdontogramRecordType,
+    default: OdontogramRecordType.EVOLUTION,
+  })
+  recordType: OdontogramRecordType;
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
   patient: Patient;

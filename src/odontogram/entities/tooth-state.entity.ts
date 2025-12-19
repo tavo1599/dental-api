@@ -1,6 +1,7 @@
 import { Patient } from '../../patients/entities/patient.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { OdontogramRecordType } from '../enums/record-type.enum';
 
 @Entity({ name: 'tooth_states' })
 export class ToothState {
@@ -20,7 +21,14 @@ export class ToothState {
   abbreviation: string; // Ej: "PP"
 
   @Column()
-  status: 'bueno' | 'malo' | 'evolucionado'; 
+  status: 'bueno' | 'malo' | 'evolucionado';
+
+  @Column({
+    type: 'enum',
+    enum: OdontogramRecordType,
+    default: OdontogramRecordType.EVOLUTION,
+  })
+  recordType: OdontogramRecordType;
 
   @ManyToOne(() => Patient, { onDelete: 'CASCADE' })
   patient: Patient;

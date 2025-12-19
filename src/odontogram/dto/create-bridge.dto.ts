@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsNumber, IsString, IsIn, IsOptional } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsString, IsIn, IsOptional } from 'class-validator';
+import { OdontogramRecordType } from '../enums/record-type.enum';
 
 export class CreateBridgeDto {
   @IsNumber()
@@ -17,4 +18,8 @@ export class CreateBridgeDto {
   @IsNotEmpty()
   @IsIn(['red', 'blue'])
   color: string;
+
+  @IsEnum(OdontogramRecordType)
+  @IsOptional()
+  recordType?: OdontogramRecordType;
 }
