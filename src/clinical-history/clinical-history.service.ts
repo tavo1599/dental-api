@@ -1,9 +1,8 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { ClinicalHistoryEntry } from './entities/clinical-history-entry.entity';
 import { CreateClinicalHistoryEntryDto } from './dto/create-clinical-history-entry.dto';
-// 1. Importamos el Servicio de Pacientes
 import { PatientsService } from '../patients/patients.service'; 
 
 @Injectable()
@@ -11,23 +10,43 @@ export class ClinicalHistoryService {
   constructor(
     @InjectRepository(ClinicalHistoryEntry)
     private readonly historyRepository: Repository<ClinicalHistoryEntry>,
-    // 2. Inyección con forwardRef para evitar dependencias circulares
     @Inject(forwardRef(() => PatientsService))
     private readonly patientsService: PatientsService,
   ) {}
 
-  // --- MÉTODO CREATE (Mantiene tu firma de 4 argumentos) ---
+  // --- NUEVO: Busca recordatorios globales por fecha ---
+  async findAllReminders(tenantId: string, date?: string) {
+    const whereClause: any = { tenant: { id: tenantId } };
+    
+    // Si mandan fecha, filtramos. Si no, trae todo (cuidado con el volumen)
+    if (date) {
+        // Buscamos coincidencia exacta de fecha (string YYYY-MM-DD)
+        // Asumiendo que guardas la fecha como string o date compatible
+        whereClause.nextAppointmentDate = date; 
+    } else {
+        // Solo traer los que tienen alguna fecha futura definida
+        // (Esto depende de tu BD, aquí un ejemplo básico para que no traiga vacíos)
+        // whereClause.nextAppointmentDate = Not(IsNull()); 
+    }
+
+    return this.historyRepository.find({
+      where: whereClause,
+      relations: ['patient', 'user'], // Vital para que el asistente sepa el nombre del paciente y doctor
+      order: { nextAppointmentDate: 'ASC' },
+      take: 50 // Límite razonable
+    });
+  }
+
+  // --- MÉTODOS ORIGINALES ---
+
   async create(
     createDto: CreateClinicalHistoryEntryDto,
     patientId: string,
     userId: string,
     tenantId: string,
   ) {
-    // 1. Verificar paciente (Tu lógica original)
     await this.patientsService.findOne(patientId, tenantId);
 
-    // 2. FIX DE SEGURIDAD CRÍTICO: Limpiar fecha vacía "" -> null
-    // Esto evita el error "invalid input syntax for type timestamp: """
     const sanitizedDate = 
       (!createDto.nextAppointmentDate || createDto.nextAppointmentDate === '') 
         ? null 
@@ -38,10 +57,9 @@ export class ClinicalHistoryService {
         ? null
         : createDto.nextAppointmentPlan;
 
-    // 3. Crear entidad usando los datos limpios
     const newEntry = this.historyRepository.create({
       ...createDto,
-      nextAppointmentDate: sanitizedDate, // Usamos el valor limpio (null o fecha válida)
+      nextAppointmentDate: sanitizedDate,
       nextAppointmentPlan: sanitizedPlan,
       patient: { id: patientId },
       user: { id: userId },
@@ -51,7 +69,6 @@ export class ClinicalHistoryService {
     return this.historyRepository.save(newEntry);
   }
 
-  // --- MÉTODO FIND ALL (Mantiene tu nombre original) ---
   async findAllForPatient(patientId: string, tenantId: string) {
     await this.patientsService.findOne(patientId, tenantId);
 
@@ -62,12 +79,11 @@ export class ClinicalHistoryService {
     });
   }
 
-  // --- NUEVO: MÉTODO UPDATE (Con limpieza de datos) ---
-  async update(id: string, updateDto: any) {
-    const entry = await this.historyRepository.findOneBy({ id });
+  async update(id: string, updateDto: any, tenantId: string) {
+    // Agregamos filtro por tenant para seguridad
+    const entry = await this.historyRepository.findOne({ where: { id, tenant: { id: tenantId } } });
     if (!entry) throw new NotFoundException(`Entrada de historial ${id} no encontrada`);
 
-    // FIX DE SEGURIDAD TAMBIÉN AQUÍ
     if ('nextAppointmentDate' in updateDto) {
       if (!updateDto.nextAppointmentDate || updateDto.nextAppointmentDate === '') {
         updateDto.nextAppointmentDate = null;
@@ -84,9 +100,9 @@ export class ClinicalHistoryService {
     return this.historyRepository.save(updatedEntry);
   }
 
-  // --- NUEVO: MÉTODO REMOVE ---
-  async remove(id: string) {
-    const entry = await this.historyRepository.findOneBy({ id });
+  async remove(id: string, tenantId: string) {
+    // Agregamos filtro por tenant para seguridad
+    const entry = await this.historyRepository.findOne({ where: { id, tenant: { id: tenantId } } });
     if (!entry) throw new NotFoundException(`Entrada de historial ${id} no encontrada`);
     return this.historyRepository.remove(entry);
   }
