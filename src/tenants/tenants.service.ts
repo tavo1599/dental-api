@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import * as sharp from 'sharp';
 // Importamos cliente R2 y comandos S3
-import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../config/r2.config'; // Asegúrate de que esta ruta sea correcta
+import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../config/r2.config'; 
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 @Injectable()
@@ -14,9 +14,7 @@ export class TenantsService {
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
-  ) {
-    // No necesitamos inicializar el cliente S3 aquí, ya lo hace r2.config
-  }
+  ) {}
 
   // --- HELPER: Subir Buffer a R2 ---
   private async uploadToR2(buffer: Buffer, key: string, mimeType: string): Promise<string> {
@@ -84,7 +82,15 @@ export class TenantsService {
   }
 
   async updateProfile(tenantId: string, dto: UpdateTenantDto) {
+    // Si el DTO trae los nuevos campos (domainSlug, websiteConfig), se actualizarán aquí automáticamente
     await this.tenantRepository.update(tenantId, dto);
     return this.tenantRepository.findOneBy({ id: tenantId });
+  }
+
+  // --- NUEVO MÉTODO: Buscar por Slug (Para sitio web público) ---
+  async findBySlug(slug: string): Promise<Tenant | null> {
+    return this.tenantRepository.findOne({ 
+      where: { domainSlug: slug } 
+    });
   }
 }

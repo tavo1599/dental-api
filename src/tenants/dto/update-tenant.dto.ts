@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsObject, IsNumber, IsBoolean } from 'class-validator';
 
 export class UpdateTenantDto {
   @IsString()
@@ -16,4 +16,23 @@ export class UpdateTenantDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  @IsOptional()
+  @IsString()
+  domainSlug?: string; // El subdominio (ej: 'clinica-dental-sur')
+
+  @IsOptional()
+  @IsObject()
+  websiteConfig?: {
+    primaryColor?: string;
+    secondaryColor?: string;
+    welcomeMessage?: string;
+    aboutUs?: string;
+    heroImageUrl?: string;
+    facebookUrl?: string;
+    instagramUrl?: string;
+    whatsappNumber?: string;
+    showStaff?: boolean;
+    addressCoordinates?: { lat: number, lng: number };
+  };
 }

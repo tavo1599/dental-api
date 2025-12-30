@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn, OneToMany, CreateDateColumn } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Patient } from '../../patients/entities/patient.entity';
 
@@ -15,6 +15,28 @@ export class Tenant {
 
   @Column()
   name: string;
+
+  // --- NUEVOS CAMPOS PARA SITIO WEB (Website Builder) ---
+  
+  // El subdominio único: ej. 'clinica-sur'
+  @Column({ unique: true, nullable: true })
+  domainSlug: string; 
+
+  // Configuración visual y contenido público
+  @Column({ type: 'jsonb', nullable: true })
+  websiteConfig: {
+    primaryColor?: string;
+    secondaryColor?: string;
+    welcomeMessage?: string;
+    aboutUs?: string;
+    heroImageUrl?: string; 
+    facebookUrl?: string;
+    instagramUrl?: string;
+    whatsappNumber?: string;
+    showStaff?: boolean;
+    addressCoordinates?: { lat: number, lng: number };
+  };
+  // -----------------------------------------------------
 
   @Column({ unique: true })
   schema: string;
@@ -71,4 +93,7 @@ export class Tenant {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
