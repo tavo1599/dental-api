@@ -11,8 +11,34 @@ async function bootstrap() {
 
   app.useWebSocketAdapter(new SocketIoAdapter(app));
 
-  // Configura CORS correctamente para producción si es necesario
-  app.enableCors();
+  // --- CONFIGURACIÓN CORS DINÁMICA ---
+  // Reemplaza al app.enableCors() básico para permitir subdominios
+  app.enableCors({
+    origin: (requestOrigin, callback) => {
+      // 1. Permitir peticiones sin origen (como Postman o Server-to-Server)
+      if (!requestOrigin) return callback(null, true);
+
+      // 2. Definir los dominios permitidos
+      // Acepta: sonriandes.com, app.sonriandes.com, y CUALQUIER subdominio (*.sonriandes.com)
+      // También acepta localhost para desarrollo
+      const allowedDomains = [
+        /^https:\/\/(.*\.)?sonriandes\.com$/, // Regex para dominios de producción
+        /^http:\/\/localhost:\d+$/            // Desarrollo local
+      ];
+
+      const isAllowed = allowedDomains.some(regex => regex.test(requestOrigin));
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`Bloqueado por CORS: ${requestOrigin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true, // Permitir cookies/headers de autorización
+  });
+  // -----------------------------------
 
   app.useGlobalPipes(new ValidationPipe());
 
