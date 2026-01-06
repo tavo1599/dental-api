@@ -24,15 +24,34 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsObject()
   websiteConfig?: {
+    // Estilo
     primaryColor?: string;
     secondaryColor?: string;
+    
+    // Contenido Hero
     welcomeMessage?: string;
+    subTitle?: string;
+    heroImageUrl?: string; 
+
+    // Sección Nosotros
     aboutUs?: string;
-    heroImageUrl?: string;
+    aboutUsImageUrl?: string;
+
+    // Contacto y Redes
+    whatsappNumber?: string;
     facebookUrl?: string;
     instagramUrl?: string;
-    whatsappNumber?: string;
-    showStaff?: boolean;
+    tiktokUrl?: string;
+    youtubeUrl?: string;
+    
+    // Info Operativa
+    schedule?: string;
     addressCoordinates?: { lat: number, lng: number };
+    
+    // Configuración
+    showStaff?: boolean;
+    
+    // Servicios (flexible)
+    services?: any[];
   };
 }

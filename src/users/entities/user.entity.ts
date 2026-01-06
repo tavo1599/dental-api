@@ -34,6 +34,18 @@ export class User {
   })
   role: UserRole;
 
+  @Column({ nullable: true })
+  specialty: string; // Ej: "Ortodoncista", "Odontopediatra"
+
+  @Column({ nullable: true })
+  cmp: string; // Colegio Odontológico / Licencia
+
+  @Column({ nullable: true })
+  photoUrl: string; // Foto de perfil del doctor
+
+  @Column({ type: 'text', nullable: true })
+  bio: string; // Breve descripción (opcional)
+
   @Column({ type: 'boolean', default: false })
   isSuperAdmin: boolean;
   // --- FIN ---
