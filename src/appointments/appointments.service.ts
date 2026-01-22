@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, Repository, LessThan, MoreThan, Not } from 'typeorm';
 import { Appointment, AppointmentStatus } from './entities/appointment.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Patient } from '../patients/entities/patient.entity';
@@ -26,8 +26,31 @@ export class AppointmentsService {
   async create(createDto: CreateAppointmentDto, tenantId: string) {
     const { patientId, doctorId, notes } = createDto;
     
+    // Convertir fechas (asegúrate de que el formato sea compatible con tu frontend, aquí se asume ISO)
+    // El frontend suele enviar 'YYYY-MM-DDTHH:mm:ss' o similar.
+    // Si tu frontend envía solo "2023-10-25 10:00", el -05:00 es correcto para Lima.
+    // Si envía ISO completo (con Z o offset), new Date() lo maneja.
+    // Asumiremos que el input es compatible con tu lógica actual.
     const startTime = new Date(`${createDto.startTime}-05:00`);
     const endTime = new Date(`${createDto.endTime}-05:00`);
+
+    // --- VALIDACIÓN DE CRUCE DE HORARIOS (NUEVO) ---
+    const overlappingAppointment = await this.appointmentRepository.findOne({
+      where: {
+        doctor: { id: doctorId }, // Mismo doctor
+        tenant: { id: tenantId }, // Misma clínica (por seguridad)
+        status: Not(AppointmentStatus.CANCELLED), // Ignorar canceladas
+        // La lógica de solapamiento es:
+        // (NuevaInicio < CitaFin) Y (NuevaFin > CitaInicio)
+        startTime: LessThan(endTime),
+        endTime: MoreThan(startTime),
+      }
+    });
+
+    if (overlappingAppointment) {
+      throw new BadRequestException('El doctor ya tiene una cita agendada en ese horario.');
+    }
+    // ----------------------------------------------
 
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
     if (!patient) throw new UnauthorizedException('El paciente no pertenece a esta clínica.');
@@ -121,7 +144,8 @@ export class AppointmentsService {
     tenantId: string,
   ) {
     const appointment = await this.appointmentRepository.findOne({
-      where: { id: appointmentId, tenant: { id: tenantId } }
+      where: { id: appointmentId, tenant: { id: tenantId } },
+      relations: ['doctor'] // Necesitamos el doctor para validar cruces
     });
     if (!appointment) throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
 
@@ -135,6 +159,25 @@ export class AppointmentsService {
       const duration = originalEndTime.getTime() - originalStartTime.getTime();
       newEndTime = new Date(newStartTime.getTime() + duration);
     }
+
+    // --- VALIDACIÓN DE CRUCE DE HORARIOS (UPDATE) ---
+    // Verificamos si al mover la cita, choca con otra del mismo doctor
+    const overlappingAppointment = await this.appointmentRepository.findOne({
+      where: {
+        id: Not(appointmentId), // Importante: Excluirse a sí misma
+        doctor: { id: appointment.doctor.id },
+        tenant: { id: tenantId },
+        status: Not(AppointmentStatus.CANCELLED),
+        startTime: LessThan(newEndTime),
+        endTime: MoreThan(newStartTime),
+      }
+    });
+
+    if (overlappingAppointment) {
+      throw new BadRequestException('El doctor ya tiene una cita agendada en ese nuevo horario.');
+    }
+    // ------------------------------------------------
+
     appointment.startTime = newStartTime;
     appointment.endTime = newEndTime;
     return this.appointmentRepository.save(appointment);
