@@ -54,7 +54,20 @@ export class PublicTenantsController {
     const tenant = await this.tenantsService.findBySlug(slug);
     if (!tenant) throw new NotFoundException('Clínica no encontrada');
     
-    // Solo devolvemos datos seguros y públicos
+    // Filtramos los usuarios para enviar solo los datos públicos necesarios
+    // y solo aquellos que sean DENTIST o ADMIN (ignoramos asistentes)
+    const publicUsers = (tenant.users || [])
+      .filter(u => u.role === UserRole.DENTIST || u.role === UserRole.ADMIN)
+      .map(u => ({
+         id: u.id,
+         fullName: u.fullName,
+         photoUrl: u.photoUrl,
+         specialty: u.specialty,
+         cmp: u.cmp,
+         bio: u.bio,
+         role: u.role
+      }));
+
     return {
       id: tenant.id,
       name: tenant.name,
@@ -62,7 +75,8 @@ export class PublicTenantsController {
       address: tenant.address,
       phone: tenant.phone,
       email: tenant.email,
-      websiteConfig: tenant.websiteConfig // Colores, textos, etc.
+      websiteConfig: tenant.websiteConfig,
+      users: publicUsers // <--- AHORA SÍ ENVIAMOS LOS DOCTORES
     };
   }
 }

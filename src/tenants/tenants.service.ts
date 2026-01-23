@@ -90,7 +90,8 @@ export class TenantsService {
   // --- NUEVO MÉTODO: Buscar por Slug (Para sitio web público) ---
   async findBySlug(slug: string): Promise<Tenant | null> {
     return this.tenantRepository.findOne({ 
-      where: { domainSlug: slug } 
+      where: { domainSlug: slug },
+      relations: ['users'] 
     });
   }
 }
