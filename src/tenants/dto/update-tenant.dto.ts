@@ -1,5 +1,42 @@
-import { IsString, IsOptional, IsEmail, IsObject, IsNumber, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsObject, IsBoolean, ValidateNested, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
 
+// 1. Extraemos tu objeto en línea a una clase propia para que NestJS pueda validarlo por dentro
+export class WebsiteConfigDto {
+  // Estilo
+  @IsOptional() @IsString() theme?: string;
+  @IsOptional() @IsString() primaryColor?: string;
+  @IsOptional() @IsString() secondaryColor?: string;
+  
+  // Contenido Hero
+  @IsOptional() @IsString() welcomeMessage?: string;
+  @IsOptional() @IsString() subTitle?: string;
+  @IsOptional() @IsString() heroImageUrl?: string; 
+
+  // Sección Nosotros
+  @IsOptional() @IsString() aboutUs?: string;
+  @IsOptional() @IsString() aboutUsImageUrl?: string;
+
+  // Contacto y Redes
+  @IsOptional() @IsString() whatsappNumber?: string;
+  @IsOptional() @IsString() facebookUrl?: string;
+  @IsOptional() @IsString() instagramUrl?: string;
+  @IsOptional() @IsString() tiktokUrl?: string;
+  @IsOptional() @IsString() youtubeUrl?: string;
+  @IsOptional() @IsString() mapsUrl?: string;
+  
+  // Info Operativa
+  @IsOptional() @IsString() schedule?: string;
+  @IsOptional() @IsObject() addressCoordinates?: { lat: number, lng: number };
+  
+  // Configuración
+  @IsOptional() @IsBoolean() showStaff?: boolean;
+  
+  // Servicios (flexible)
+  @IsOptional() @IsArray() services?: any[];
+}
+
+// 2. Tu DTO principal se mantiene igual, pero ahora usa ValidateNested para el objeto
 export class UpdateTenantDto {
   @IsString()
   @IsOptional()
@@ -17,41 +54,12 @@ export class UpdateTenantDto {
   @IsOptional()
   email?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   domainSlug?: string; // El subdominio (ej: 'clinica-dental-sur')
 
   @IsOptional()
-  @IsObject()
-  websiteConfig?: {
-    // Estilo
-    primaryColor?: string;
-    secondaryColor?: string;
-    
-    // Contenido Hero
-    welcomeMessage?: string;
-    subTitle?: string;
-    heroImageUrl?: string; 
-
-    // Sección Nosotros
-    aboutUs?: string;
-    aboutUsImageUrl?: string;
-
-    // Contacto y Redes
-    whatsappNumber?: string;
-    facebookUrl?: string;
-    instagramUrl?: string;
-    tiktokUrl?: string;
-    youtubeUrl?: string;
-    
-    // Info Operativa
-    schedule?: string;
-    addressCoordinates?: { lat: number, lng: number };
-    
-    // Configuración
-    showStaff?: boolean;
-    
-    // Servicios (flexible)
-    services?: any[];
-  };
+  @ValidateNested()
+  @Type(() => WebsiteConfigDto)
+  websiteConfig?: WebsiteConfigDto;
 }
