@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnauthorizedException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository, LessThan, MoreThan, Not } from 'typeorm';
+import { Between, Repository, LessThan, MoreThan, Not, In } from 'typeorm'; // <-- NUEVO: Agregado 'In'
 import { Appointment, AppointmentStatus } from './entities/appointment.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Patient } from '../patients/entities/patient.entity';
@@ -26,22 +26,17 @@ export class AppointmentsService {
   async create(createDto: CreateAppointmentDto, tenantId: string) {
     const { patientId, doctorId, notes } = createDto;
     
-    // Convertir fechas (asegúrate de que el formato sea compatible con tu frontend, aquí se asume ISO)
-    // El frontend suele enviar 'YYYY-MM-DDTHH:mm:ss' o similar.
-    // Si tu frontend envía solo "2023-10-25 10:00", el -05:00 es correcto para Lima.
-    // Si envía ISO completo (con Z o offset), new Date() lo maneja.
-    // Asumiremos que el input es compatible con tu lógica actual.
+    // Convertir fechas
     const startTime = new Date(`${createDto.startTime}-05:00`);
     const endTime = new Date(`${createDto.endTime}-05:00`);
 
-    // --- VALIDACIÓN DE CRUCE DE HORARIOS (NUEVO) ---
+    // --- VALIDACIÓN DE CRUCE DE HORARIOS (CORREGIDO) ---
     const overlappingAppointment = await this.appointmentRepository.findOne({
       where: {
-        doctor: { id: doctorId }, // Mismo doctor
-        tenant: { id: tenantId }, // Misma clínica (por seguridad)
-        status: Not(AppointmentStatus.CANCELLED), // Ignorar canceladas
-        // La lógica de solapamiento es:
-        // (NuevaInicio < CitaFin) Y (NuevaFin > CitaInicio)
+        doctor: { id: doctorId }, 
+        tenant: { id: tenantId }, 
+        // AHORA IGNORA TANTO CANCELADAS COMO NO PRESENTADOS
+        status: Not(In([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW])),
         startTime: LessThan(endTime),
         endTime: MoreThan(startTime),
       }
@@ -145,7 +140,7 @@ export class AppointmentsService {
   ) {
     const appointment = await this.appointmentRepository.findOne({
       where: { id: appointmentId, tenant: { id: tenantId } },
-      relations: ['doctor'] // Necesitamos el doctor para validar cruces
+      relations: ['doctor'] 
     });
     if (!appointment) throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
 
@@ -160,14 +155,14 @@ export class AppointmentsService {
       newEndTime = new Date(newStartTime.getTime() + duration);
     }
 
-    // --- VALIDACIÓN DE CRUCE DE HORARIOS (UPDATE) ---
-    // Verificamos si al mover la cita, choca con otra del mismo doctor
+    // --- VALIDACIÓN DE CRUCE DE HORARIOS (CORREGIDO) ---
     const overlappingAppointment = await this.appointmentRepository.findOne({
       where: {
-        id: Not(appointmentId), // Importante: Excluirse a sí misma
+        id: Not(appointmentId), 
         doctor: { id: appointment.doctor.id },
         tenant: { id: tenantId },
-        status: Not(AppointmentStatus.CANCELLED),
+        // AHORA IGNORA TANTO CANCELADAS COMO NO PRESENTADOS
+        status: Not(In([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW])),
         startTime: LessThan(newEndTime),
         endTime: MoreThan(newStartTime),
       }
@@ -193,7 +188,6 @@ export class AppointmentsService {
       throw new NotFoundException('Cita no encontrada.');
     }
 
-    // Si la cita tiene un evento de Google asociado, lo borramos
     if (appointment.googleEventId) {
       try {
         await this.googleCalendarService.deleteEvent(tenantId, appointment.googleEventId);

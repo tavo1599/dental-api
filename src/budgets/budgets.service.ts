@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from '../patients/entities/patient.entity';
@@ -20,7 +20,21 @@ export class BudgetsService {
     private readonly budgetItemRepository: Repository<BudgetItem>,
   ) {}
 
-  async create(createBudgetDto: CreateBudgetDto, tenantId: string, doctorId: string) {
+  async create(createBudgetDto: CreateBudgetDto, currentUser: any) {
+    const tenantId = currentUser.tenantId;
+    let assignedDoctorId = currentUser.id; // Por defecto, es el ID del usuario logueado (el doctor)
+
+    // --- NUEVA LÓGICA DE ROLES ---
+    // Si el usuario es asistente o admin, verificamos a qué doctor se lo asignó
+    if (currentUser.role === 'assistant' || currentUser.role === 'admin') {
+      // Necesitamos as any para evitar error de TypeScript si doctorId es opcional en DTO
+      if (!(createBudgetDto as any).doctorId) {
+        throw new BadRequestException('El asistente debe seleccionar un doctor para este presupuesto.');
+      }
+      assignedDoctorId = (createBudgetDto as any).doctorId;
+    }
+    // -----------------------------
+
     // 1. Extraer todos los campos, incluyendo los nuevos de ortodoncia
     const { 
       patientId, 
@@ -75,7 +89,7 @@ export class BudgetsService {
     const newBudget = this.budgetRepository.create({
       patient,
       tenant: { id: tenantId },
-      doctor: { id: doctorId },
+      doctor: { id: assignedDoctorId }, // <-- USAMOS EL DOCTOR RESUELTO POR LA LÓGICA
       totalAmount,
       discountAmount: discount,
       finalAmount,

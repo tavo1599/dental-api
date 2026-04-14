@@ -17,8 +17,8 @@ export class OdontogramController {
   @Get()
   getOdontogram(
       @Param('patientId') patientId: string, 
-      @Req() req,
-      @Query('type') type?: OdontogramRecordType // <-- Nuevo parámetro Query
+      @Req() req: any,
+      @Query('type') type?: OdontogramRecordType // <-- Parámetro Query
   ) {
     const { tenantId } = req.user;
     // Si no envían type, el servicio usa EVOLUTION por defecto
@@ -31,7 +31,7 @@ export class OdontogramController {
   updateOdontogram(
     @Param('patientId') patientId: string,
     @Body() updateDto: UpdateOdontogramDto,
-    @Req() req,
+    @Req() req: any,
   ) {
     // El DTO ya incluye el recordType
     return this.odontogramService.updateOdontogram(updateDto, patientId, req.user.tenantId);
@@ -43,7 +43,7 @@ export class OdontogramController {
   saveToothState(
     @Param('patientId') patientId: string,
     @Body() dto: CreateToothStateDto,
-    @Req() req
+    @Req() req: any
   ) {
     return this.odontogramService.saveToothState(dto, patientId, req.user.tenantId);
   }
@@ -54,7 +54,7 @@ export class OdontogramController {
   @HttpCode(HttpStatus.NO_CONTENT)
   clearToothState(
     @Param('id') id: string,
-    @Req() req
+    @Req() req: any
   ) {
     return this.odontogramService.clearToothState(id, req.user.tenantId);
   }
@@ -65,7 +65,7 @@ export class OdontogramController {
   saveBridge(
     @Param('patientId') patientId: string,
     @Body() dto: CreateBridgeDto,
-    @Req() req
+    @Req() req: any
   ) {
     return this.odontogramService.saveBridge(dto, patientId, req.user.tenantId);
   }
@@ -76,8 +76,21 @@ export class OdontogramController {
   @HttpCode(HttpStatus.NO_CONTENT)
   removeBridge(
     @Param('bridgeId') bridgeId: string,
-    @Req() req
+    @Req() req: any
   ) {
     return this.odontogramService.removeBridge(bridgeId, req.user.tenantId);
+  }
+
+  // =================================================================
+  // NUEVO ENDPOINT: COPIAR ODONTOGRAMA INICIAL A EVOLUCIÓN
+  // =================================================================
+  @Post('copy-initial')
+  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @UseGuards(RolesGuard)
+  copyInitialToEvolution(
+    @Param('patientId') patientId: string,
+    @Req() req: any
+  ) {
+    return this.odontogramService.copyInitialToEvolution(patientId, req.user.tenantId);
   }
 }

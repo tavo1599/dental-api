@@ -2,8 +2,6 @@ import { Controller, Get, Post, Body, UseGuards, Req, Param, Patch, Delete, Http
 import { AuthGuard } from '@nestjs/passport';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
-// Asegúrate de importar tu DTO de actualización si lo tienes separado, o usa Partial<CreateBudgetDto>
-// import { UpdateDiscountDto } from './dto/update-discount.dto'; 
 import { UserRole } from '../users/entities/user.entity';
 import { BudgetStatus } from './entities/budget.entity';
 
@@ -13,17 +11,17 @@ export class BudgetsController {
   constructor(private readonly budgetsService: BudgetsService) {}
 
   @Post()
-  create(@Body() createBudgetDto: CreateBudgetDto, @Req() req) {
-    const { tenantId, sub: doctorId } = req.user;
-    // Pasamos el ID del usuario actual como creador (doctor)
-    return this.budgetsService.create(createBudgetDto, tenantId, doctorId);
+  create(@Body() createBudgetDto: CreateBudgetDto, @Req() req: any) {
+    // CORRECCIÓN: Le enviamos TODO el objeto req.user al servicio 
+    // para que la nueva lógica de roles sepa si es asistente o doctor.
+    return this.budgetsService.create(createBudgetDto, req.user);
   }
 
   // --- ENDPOINT CORREGIDO Y FINAL ---
   @Get('patient/:patientId')
   findAllForPatient(
     @Param('patientId') patientId: string,
-    @Req() req,
+    @Req() req: any,
     @Query('doctorId') doctorIdFromQuery?: string, // Lee el filtro del frontend
   ) {
     const { tenantId, role, sub: userId } = req.user;
@@ -38,25 +36,25 @@ export class BudgetsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Req() req) {
+  findOne(@Param('id') id: string, @Req() req: any) {
     return this.budgetsService.findOne(id, req.user.tenantId);
   }
 
   @Patch(':id/approve')
   @HttpCode(HttpStatus.OK)
-  approveBudget(@Param('id') id: string, @Req() req) {
+  approveBudget(@Param('id') id: string, @Req() req: any) {
     return this.budgetsService.updateStatus(id, req.user.tenantId, BudgetStatus.APPROVED);
   }
 
   @Patch(':id/reject')
   @HttpCode(HttpStatus.OK)
-  rejectBudget(@Param('id') id: string, @Req() req) {
+  rejectBudget(@Param('id') id: string, @Req() req: any) {
     return this.budgetsService.updateStatus(id, req.user.tenantId, BudgetStatus.REJECTED);
   }
 
   @Patch(':id/discount')
   @HttpCode(HttpStatus.OK)
-  setDiscount(@Param('id') id: string, @Body('discountAmount') discountAmount: number, @Req() req) {
+  setDiscount(@Param('id') id: string, @Body('discountAmount') discountAmount: number, @Req() req: any) {
     // Permite establecer o actualizar un descuento (monto fijo) para un presupuesto
     // Nota: Si usas un DTO específico, cámbialo aquí. Si no, @Body('prop') funciona bien.
     return this.budgetsService.updateDiscount(id, req.user.tenantId, discountAmount);
@@ -64,7 +62,7 @@ export class BudgetsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string, @Req() req) {
+  remove(@Param('id') id: string, @Req() req: any) {
     // Elimina un presupuesto asegurando que pertenece al tenant del usuario
     return this.budgetsService.remove(id, req.user.tenantId);
   }

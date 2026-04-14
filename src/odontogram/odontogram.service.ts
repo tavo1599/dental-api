@@ -168,4 +168,66 @@ export class OdontogramService {
     const result = await this.bridgeRepository.delete({ id: bridgeId, tenant: { id: tenantId } });
     if (result.affected === 0) throw new NotFoundException('Puente no encontrado.');
   }
+
+  // =================================================================
+  // NUEVA FUNCIÓN: COPIAR ODONTOGRAMA INICIAL A EVOLUCIÓN
+  // =================================================================
+  async copyInitialToEvolution(patientId: string, tenantId: string) {
+    // 1. Limpiar el odontograma de evolución actual para no duplicar datos
+    await this.toothRepository.delete({ patient: { id: patientId }, tenant: { id: tenantId }, recordType: OdontogramRecordType.EVOLUTION });
+    await this.surfaceRepository.delete({ patient: { id: patientId }, tenant: { id: tenantId }, recordType: OdontogramRecordType.EVOLUTION });
+    await this.toothStateRepository.delete({ patient: { id: patientId }, tenant: { id: tenantId }, recordType: OdontogramRecordType.EVOLUTION });
+    await this.bridgeRepository.delete({ patient: { id: patientId }, tenant: { id: tenantId }, recordType: OdontogramRecordType.EVOLUTION });
+
+    // 2. Traer todos los registros del odontograma INICIAL
+    const initialData = await this.getOdontogram(patientId, tenantId, OdontogramRecordType.INITIAL);
+
+    // 3. Crear copias exactas, pero forzando el recordType a EVOLUTION
+    if (initialData.wholeTeeth.length > 0) {
+      const newTeeth = initialData.wholeTeeth.map(t => this.toothRepository.create({
+        ...t,
+        id: undefined, // Quitamos el ID para que base de datos genere uno nuevo
+        patient: { id: patientId },
+        tenant: { id: tenantId },
+        recordType: OdontogramRecordType.EVOLUTION
+      }));
+      await this.toothRepository.save(newTeeth);
+    }
+
+    if (initialData.surfaces.length > 0) {
+      const newSurfaces = initialData.surfaces.map(s => this.surfaceRepository.create({
+        ...s,
+        id: undefined,
+        patient: { id: patientId },
+        tenant: { id: tenantId },
+        recordType: OdontogramRecordType.EVOLUTION
+      }));
+      await this.surfaceRepository.save(newSurfaces);
+    }
+
+    if (initialData.toothStates.length > 0) {
+      const newStates = initialData.toothStates.map(s => this.toothStateRepository.create({
+        ...s,
+        id: undefined,
+        patient: { id: patientId },
+        tenant: { id: tenantId },
+        recordType: OdontogramRecordType.EVOLUTION
+      }));
+      await this.toothStateRepository.save(newStates);
+    }
+
+    if (initialData.bridges.length > 0) {
+      const newBridges = initialData.bridges.map(b => this.bridgeRepository.create({
+        ...b,
+        id: undefined,
+        patient: { id: patientId },
+        tenant: { id: tenantId },
+        recordType: OdontogramRecordType.EVOLUTION
+      }));
+      await this.bridgeRepository.save(newBridges);
+    }
+
+    // 4. Devolvemos el nuevo odontograma de evolución
+    return this.getOdontogram(patientId, tenantId, OdontogramRecordType.EVOLUTION);
+  }
 }
