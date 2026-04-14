@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DemoModule } from './demo/demo.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -108,6 +109,7 @@ import { DentalBridge } from './odontogram/entities/dental-bridge.entity';
     PlannedTreatmentsModule,
     ConsentTemplatesModule,
     GoogleCalendarModule,
+    DemoModule,
 
   ],
   controllers: [AppController],
