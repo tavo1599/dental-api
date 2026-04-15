@@ -22,16 +22,24 @@ export class BudgetsService {
 
   async create(createBudgetDto: CreateBudgetDto, currentUser: any) {
     const tenantId = currentUser.tenantId;
-    let assignedDoctorId = currentUser.id; // Por defecto, es el ID del usuario logueado (el doctor)
+    
+    // CORRECCIÓN: El token de seguridad guarda el ID de usuario en 'sub', no en 'id'.
+    // Si el usuario es doctor, tomará su propio ID correctamente desde 'currentUser.sub'.
+    let assignedDoctorId = currentUser.id || currentUser.sub; 
 
     // --- NUEVA LÓGICA DE ROLES ---
     // Si el usuario es asistente o admin, verificamos a qué doctor se lo asignó
     if (currentUser.role === 'assistant' || currentUser.role === 'admin') {
       // Necesitamos as any para evitar error de TypeScript si doctorId es opcional en DTO
       if (!(createBudgetDto as any).doctorId) {
-        throw new BadRequestException('El asistente debe seleccionar un doctor para este presupuesto.');
+        throw new BadRequestException('El asistente o administrador debe seleccionar un doctor para este presupuesto.');
       }
       assignedDoctorId = (createBudgetDto as any).doctorId;
+    }
+    
+    // Validamos que por ningún motivo el presupuesto se guarde sin doctor
+    if (!assignedDoctorId) {
+        throw new BadRequestException('No se pudo identificar al doctor tratante. Por favor inicie sesión nuevamente.');
     }
     // -----------------------------
 
