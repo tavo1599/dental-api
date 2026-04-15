@@ -18,36 +18,52 @@ export class Tenant {
 
   // --- NUEVOS CAMPOS PARA SITIO WEB (Website Builder) ---
   
-  // El subdominio único: ej. 'clinica-sur'
   @Column({ unique: true, nullable: true })
   domainSlug: string; 
 
-  // Configuración visual y contenido público
+  /**
+   * Se ha actualizado el tipo de websiteConfig para incluir:
+   * - theme: Para las plantillas (modern, classic, minimal).
+   * - subTitle: Para el texto bajo el título principal.
+   * - services: El arreglo de especialidades que configuramos.
+   * - Campos sociales y de horario.
+   */
   @Column({ type: 'jsonb', nullable: true })
   websiteConfig: {
+    theme?: string;
     primaryColor?: string;
     secondaryColor?: string;
     welcomeMessage?: string;
+    subTitle?: string;
     aboutUs?: string;
     heroImageUrl?: string; 
+    aboutUsImageUrl?: string;
+    whatsappNumber?: string;
     facebookUrl?: string;
     instagramUrl?: string;
-    whatsappNumber?: string;
+    tiktokUrl?: string;
+    youtubeUrl?: string;
+    mapsUrl?: string;
+    schedule?: string;
     showStaff?: boolean;
     addressCoordinates?: { lat: number, lng: number };
+    services?: { title: string; description: string; iconType: string }[];
   };
+
+  // NUEVO: Campo vital para habilitar botones de Sembrar/Vaciar en el dashboard
+  @Column({ name: 'isTest', type: 'boolean', default: false })
+  isTest: boolean;
+
   // -----------------------------------------------------
 
   @Column({ unique: true })
   schema: string;
 
-    // --- CAMPOS PARA PLANES DE SUSCRIPCIÓN ---
   @Column({ default: 'profesional' })
-  plan: string; // ej. 'basico', 'profesional', 'premium'
+  plan: string; 
 
   @Column({ type: 'int', default: 10 })
-  maxUsers: number; // Límite de usuarios según el plan
-  // --- FIN ---
+  maxUsers: number; 
 
   @Column({
     type: 'enum',
@@ -62,7 +78,6 @@ export class Tenant {
   @Column({ type: 'date', nullable: true })
   nextPaymentDate: Date | null;
 
-  // --- CAMPOS PARA LA INTEGRACIÓN CON GOOGLE ---
   @Column({ type: 'text', nullable: true })
   googleAccessToken: string | null;
 
@@ -70,7 +85,7 @@ export class Tenant {
   googleRefreshToken: string | null;
 
   @Column({ type: 'text', nullable: true })
-  googleCalendarId: string | null; // El ID del calendario a usar (ej. 'primary')
+  googleCalendarId: string | null; 
 
   @Column({ type: 'varchar', nullable: true })
   address: string | null;
@@ -80,7 +95,6 @@ export class Tenant {
 
   @Column({ type: 'varchar', nullable: true })
   email: string | null;
-  // --- FIN ---
 
   @Column({ type: 'varchar', nullable: true })
   logoUrl: string | null;

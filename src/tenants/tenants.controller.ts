@@ -19,32 +19,28 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
-// 1. CONTROLADOR PRIVADO (Gestión interna)
+// 1. CONTROLADOR PRIVADO (Gestión interna de la clínica)
 @Controller('tenants')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard) // Protegemos todas las rutas internas
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
   @Post('logo')
-  @Roles(UserRole.ADMIN) // Solo el admin de la clínica puede cambiar el logo
-  @UseGuards(RolesGuard)
-  // Utilizamos MemoryStorage por defecto
+  @Roles(UserRole.ADMIN) // Solo el dueño de la clínica puede cambiar el logo
   @UseInterceptors(FileInterceptor('file')) 
   uploadLogo(@Req() req, @UploadedFile() file: Express.Multer.File) {
-    // El servicio se encarga de procesar el buffer y subirlo a R2
     return this.tenantsService.updateLogo(req.user.tenantId, file);
   }
 
   @Patch('profile')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN) // Solo el dueño puede actualizar el perfil y la web
   updateProfile(@Req() req, @Body() dto: UpdateTenantDto) {
     return this.tenantsService.updateProfile(req.user.tenantId, dto);
   }
 }
 
-// 2. CONTROLADOR PÚBLICO (Para la página web de la clínica)
-// Este controlador NO tiene @UseGuards(AuthGuard), por lo que es accesible desde internet
+// 2. CONTROLADOR PÚBLICO (Para la Landing Page externa)
+// Este controlador es accesible sin token para que los pacientes vean la web
 @Controller('public/tenants')
 export class PublicTenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
@@ -54,8 +50,7 @@ export class PublicTenantsController {
     const tenant = await this.tenantsService.findBySlug(slug);
     if (!tenant) throw new NotFoundException('Clínica no encontrada');
     
-    // Filtramos los usuarios para enviar solo los datos públicos necesarios
-    // y solo aquellos que sean DENTIST o ADMIN (ignoramos asistentes)
+    // Filtramos los usuarios para enviar solo el equipo médico al sitio público
     const publicUsers = (tenant.users || [])
       .filter(u => u.role === UserRole.DENTIST || u.role === UserRole.ADMIN)
       .map(u => ({
@@ -68,15 +63,18 @@ export class PublicTenantsController {
          role: u.role
       }));
 
+    // Retornamos la información necesaria para pintar la web
     return {
       id: tenant.id,
       name: tenant.name,
+      domainSlug: tenant.domainSlug, // Agregado para consistencia
       logoUrl: tenant.logoUrl,
       address: tenant.address,
       phone: tenant.phone,
       email: tenant.email,
-      websiteConfig: tenant.websiteConfig,
-      users: publicUsers // <--- AHORA SÍ ENVIAMOS LOS DOCTORES
+      // websiteConfig ya contiene: theme, services, subTitle, etc. gracias a la nueva Entidad
+      websiteConfig: tenant.websiteConfig, 
+      users: publicUsers 
     };
   }
 }

@@ -16,46 +16,43 @@ export class TenantsService {
     private tenantRepository: Repository<Tenant>,
   ) {}
 
-  // --- HELPER: Subir Buffer a R2 ---
+  /**
+   * Helper privado para subir un buffer procesado a Cloudflare R2
+   */
   private async uploadToR2(buffer: Buffer, key: string, mimeType: string): Promise<string> {
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
-      Key: key, // La ruta dentro del bucket
+      Key: key, 
       Body: buffer,
       ContentType: mimeType,
-      // Si R2 requiere caché o headers adicionales, se añaden aquí
     });
     
-    // Enviamos el comando a R2
     await r2Client.send(command);
-    
-    // Devolvemos la URL pública
     return `${R2_PUBLIC_URL}/${key}`;
   }
 
+  /**
+   * Sube y actualiza el logotipo de la clínica
+   */
   async updateLogo(tenantId: string, file: Express.Multer.File) {
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
     if (!tenant) throw new NotFoundException('Clínica no encontrada.');
     if (!file) throw new BadRequestException('No se envió ningún archivo');
 
     try {
-      // 1. Procesar imagen con SHARP (en memoria)
       const processedBuffer = await sharp(file.buffer)
-        .resize({ width: 200, withoutEnlargement: true })
+        .resize({ width: 250, withoutEnlargement: true }) // Tamaño optimizado para web
         .webp({ quality: 80 })
         .toBuffer();
 
-      // 2. Definir ruta en la nube
       const fileName = `logo_${Date.now()}.webp`;
       const cloudPath = `tenants/${tenantId}/logo/${fileName}`;
 
-      // 3. Subir a R2
       const publicUrl = await this.uploadToR2(processedBuffer, cloudPath, 'image/webp');
 
-      // 4. Borrar el logo ANTIGUO de R2 (si existe)
+      // Borrar el logo antiguo de R2 si existe para no acumular basura
       if (tenant.logoUrl && tenant.logoUrl.startsWith(R2_PUBLIC_URL)) {
         try {
-          // Extraemos la clave (Key) del archivo desde la URL pública
           let oldKey = tenant.logoUrl.replace(R2_PUBLIC_URL, '');
           if (oldKey.startsWith('/')) oldKey = oldKey.substring(1);
 
@@ -64,15 +61,12 @@ export class TenantsService {
             Key: oldKey
           });
           await r2Client.send(deleteCommand);
-          console.log(`Logo antiguo (${oldKey}) eliminado de R2.`);
         } catch (deleteError) {
           console.warn('No se pudo eliminar el logo antiguo de R2:', deleteError);
         }
       }
 
-      // 5. Actualizar base de datos con la nueva URL de R2
       await this.tenantRepository.update(tenantId, { logoUrl: publicUrl });
-      
       return { logoUrl: publicUrl };
 
     } catch (error) {
@@ -81,17 +75,30 @@ export class TenantsService {
     }
   }
 
+  /**
+   * Actualiza el perfil de la clínica y la configuración del sitio web (incluyendo servicios)
+   */
   async updateProfile(tenantId: string, dto: UpdateTenantDto) {
-    // Si el DTO trae los nuevos campos (domainSlug, websiteConfig), se actualizarán aquí automáticamente
-    await this.tenantRepository.update(tenantId, dto);
-    return this.tenantRepository.findOneBy({ id: tenantId });
+    const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
+    if (!tenant) throw new NotFoundException('Clínica no encontrada');
+
+    // Usamos merge para combinar los datos nuevos (que incluyen websiteConfig con services)
+    const updatedTenant = this.tenantRepository.merge(tenant, dto);
+    
+    // Guardamos la entidad completa. TypeORM se encarga de persistir el JSONB de websiteConfig
+    await this.tenantRepository.save(updatedTenant);
+    
+    return updatedTenant;
   }
 
-  // --- NUEVO MÉTODO: Buscar por Slug (Para sitio web público) ---
+  /**
+   * Busca una clínica por su slug (subdominio). 
+   * Vital para cargar la Landing Page pública con sus doctores.
+   */
   async findBySlug(slug: string): Promise<Tenant | null> {
     return this.tenantRepository.findOne({ 
       where: { domainSlug: slug },
-      relations: ['users'] 
+      relations: ['users'] // Cargamos los usuarios para mostrar el staff en la web
     });
   }
 }

@@ -1,23 +1,38 @@
 import { IsString, IsOptional, IsEmail, IsObject, IsBoolean, ValidateNested, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
-// 1. Extraemos tu objeto en línea a una clase propia para que NestJS pueda validarlo por dentro
+/**
+ * Clase para validar cada servicio o especialidad individualmente.
+ * Esto asegura que cada objeto dentro del arreglo cumpla con la estructura necesaria.
+ */
+export class ServiceItemDto {
+  @IsString()
+  title!: string;
+
+  @IsString()
+  description!: string;
+
+  @IsOptional()
+  @IsString()
+  iconType?: string; // Ej: 'braces', 'implant', 'esthetic', 'kids', etc.
+}
+
 export class WebsiteConfigDto {
-  // Estilo
+  // Estilo visual
   @IsOptional() @IsString() theme?: string;
   @IsOptional() @IsString() primaryColor?: string;
   @IsOptional() @IsString() secondaryColor?: string;
   
-  // Contenido Hero
+  // Contenido de la sección de bienvenida (Hero)
   @IsOptional() @IsString() welcomeMessage?: string;
   @IsOptional() @IsString() subTitle?: string;
   @IsOptional() @IsString() heroImageUrl?: string; 
 
-  // Sección Nosotros
+  // Sección Sobre Nosotros
   @IsOptional() @IsString() aboutUs?: string;
   @IsOptional() @IsString() aboutUsImageUrl?: string;
 
-  // Contacto y Redes
+  // Contacto y Redes Sociales
   @IsOptional() @IsString() whatsappNumber?: string;
   @IsOptional() @IsString() facebookUrl?: string;
   @IsOptional() @IsString() instagramUrl?: string;
@@ -25,38 +40,44 @@ export class WebsiteConfigDto {
   @IsOptional() @IsString() youtubeUrl?: string;
   @IsOptional() @IsString() mapsUrl?: string;
   
-  // Info Operativa
+  // Información Operativa
   @IsOptional() @IsString() schedule?: string;
   @IsOptional() @IsObject() addressCoordinates?: { lat: number, lng: number };
   
-  // Configuración
+  // Configuración de visualización
   @IsOptional() @IsBoolean() showStaff?: boolean;
   
-  // Servicios (flexible)
-  @IsOptional() @IsArray() services?: any[];
+  /**
+   * MODIFICADO: Lista de servicios administrables.
+   * Ahora validamos que cada elemento sea un objeto de tipo ServiceItemDto.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ServiceItemDto)
+  services?: ServiceItemDto[];
 }
 
-// 2. Tu DTO principal se mantiene igual, pero ahora usa ValidateNested para el objeto
 export class UpdateTenantDto {
-  @IsString()
-  @IsOptional()
+  @IsString() 
+  @IsOptional() 
   name?: string;
 
-  @IsString()
-  @IsOptional()
+  @IsString() 
+  @IsOptional() 
   address?: string;
 
-  @IsString()
-  @IsOptional()
+  @IsString() 
+  @IsOptional() 
   phone?: string;
 
-  @IsEmail()
-  @IsOptional()
+  @IsEmail() 
+  @IsOptional() 
   email?: string;
 
-  @IsString()
-  @IsOptional()
-  domainSlug?: string; // El subdominio (ej: 'clinica-dental-sur')
+  @IsString() 
+  @IsOptional() 
+  domainSlug?: string; // Identificador para la URL (subdominio)
 
   @IsOptional()
   @ValidateNested()
