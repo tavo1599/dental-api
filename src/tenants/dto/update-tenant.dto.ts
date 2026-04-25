@@ -17,6 +17,29 @@ export class ServiceItemDto {
   iconType?: string; // Ej: 'braces', 'implant', 'esthetic', 'kids', etc.
 }
 
+/**
+ * NUEVA CLASE: Valida las restricciones de seguridad y acceso por rol dentro de la clínica.
+ * Esta estructura JSONB permite añadir más bloqueos en el futuro sin migrar la base de datos.
+ */
+export class SystemSettingsDto {
+  // --- Configuración para Doctores (Dentistas) ---
+  @IsOptional() @IsBoolean() dentistsCanSeePrices?: boolean;
+  @IsOptional() @IsBoolean() dentistsCanManageBudgets?: boolean;
+  @IsOptional() @IsBoolean() dentistsCanSeeReports?: boolean;
+  @IsOptional() @IsBoolean() dentistsCanManageTreatments?: boolean;
+  @IsOptional() @IsBoolean() dentistsCanSeeDashboardStats?: boolean;
+
+  // --- Configuración para Asistentes (Recepción) ---
+  @IsOptional() @IsBoolean() assistantsCanSeePrices?: boolean;
+  @IsOptional() @IsBoolean() assistantsCanManageBudgets?: boolean;
+  @IsOptional() @IsBoolean() assistantsCanSeeReports?: boolean;
+  @IsOptional() @IsBoolean() assistantsCanManageTreatments?: boolean;
+  @IsOptional() @IsBoolean() assistantsCanSeeDashboardStats?: boolean;
+}
+
+/**
+ * DTO para la configuración del sitio web público de la clínica.
+ */
 export class WebsiteConfigDto {
   // Estilo visual
   @IsOptional() @IsString() theme?: string;
@@ -48,8 +71,7 @@ export class WebsiteConfigDto {
   @IsOptional() @IsBoolean() showStaff?: boolean;
   
   /**
-   * MODIFICADO: Lista de servicios administrables.
-   * Ahora validamos que cada elemento sea un objeto de tipo ServiceItemDto.
+   * Lista de servicios administrables.
    */
   @IsOptional()
   @IsArray()
@@ -58,6 +80,9 @@ export class WebsiteConfigDto {
   services?: ServiceItemDto[];
 }
 
+/**
+ * DTO Principal para actualizar los datos del Tenant (Clínica).
+ */
 export class UpdateTenantDto {
   @IsString() 
   @IsOptional() 
@@ -83,4 +108,13 @@ export class UpdateTenantDto {
   @ValidateNested()
   @Type(() => WebsiteConfigDto)
   websiteConfig?: WebsiteConfigDto;
+
+  /**
+   * Nueva propiedad para manejar las restricciones de acceso y visibilidad
+   * de precios, reportes y balances desde el panel web.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SystemSettingsDto)
+  systemSettings?: SystemSettingsDto;
 }

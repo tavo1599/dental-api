@@ -16,18 +16,9 @@ export class Tenant {
   @Column()
   name: string;
 
-  // --- NUEVOS CAMPOS PARA SITIO WEB (Website Builder) ---
-  
   @Column({ unique: true, nullable: true })
   domainSlug: string; 
 
-  /**
-   * Se ha actualizado el tipo de websiteConfig para incluir:
-   * - theme: Para las plantillas (modern, classic, minimal).
-   * - subTitle: Para el texto bajo el título principal.
-   * - services: El arreglo de especialidades que configuramos.
-   * - Campos sociales y de horario.
-   */
   @Column({ type: 'jsonb', nullable: true })
   websiteConfig: {
     theme?: string;
@@ -50,11 +41,46 @@ export class Tenant {
     services?: { title: string; description: string; iconType: string }[];
   };
 
-  // NUEVO: Campo vital para habilitar botones de Sembrar/Vaciar en el dashboard
+  /**
+   * SISTEMA DE REGLAS DINÁMICO (Expandible)
+   * Aquí guardamos qué puede hacer cada rol en esta clínica específica.
+   * Si en el futuro quieres bloquear "Borrar Citas", solo agregas la llave aquí.
+   */
+  @Column({ type: 'jsonb', nullable: true, default: {
+    // Permisos para Doctores
+    dentistsCanSeePrices: true,
+    dentistsCanManageBudgets: true,
+    dentistsCanSeeReports: false,      // Nuevo: Reportes bloqueados por defecto
+    dentistsCanManageTreatments: true,
+    dentistsCanSeeDashboardStats: true, // Nuevo: Balances en Dashboard
+
+    // Permisos para Asistentes
+    assistantsCanSeePrices: true,
+    assistantsCanManageBudgets: true,
+    assistantsCanSeeReports: false,    // Nuevo
+    assistantsCanManageTreatments: false, // Nuevo: Asistentes no suelen crear tipos de tratamientos
+    assistantsCanSeeDashboardStats: false // Nuevo: Por seguridad financiera
+  }})
+  systemSettings: {
+    // Precios y Presupuestos
+    dentistsCanSeePrices?: boolean;
+    dentistsCanManageBudgets?: boolean;
+    assistantsCanSeePrices?: boolean;
+    assistantsCanManageBudgets?: boolean;
+
+    // Reportes y Estadísticas
+    dentistsCanSeeReports?: boolean;
+    assistantsCanSeeReports?: boolean;
+    dentistsCanSeeDashboardStats?: boolean;
+    assistantsCanSeeDashboardStats?: boolean;
+
+    // Catálogo de Tratamientos (Configuración de precios base)
+    dentistsCanManageTreatments?: boolean;
+    assistantsCanManageTreatments?: boolean;
+  };
+
   @Column({ name: 'isTest', type: 'boolean', default: false })
   isTest: boolean;
-
-  // -----------------------------------------------------
 
   @Column({ unique: true })
   schema: string;
@@ -110,4 +136,4 @@ export class Tenant {
 
   @UpdateDateColumn()
   updatedAt: Date;
-}
+} 
