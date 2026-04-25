@@ -29,11 +29,12 @@ export class MailService implements OnModuleInit {
     const url = `${frontendUrl}/reset-password?token=${token}`;
     
     // Aquí toma la variable de tu .env ("notificaciones@sonriandes.com")
-    const fromEmail = this.configService.get<string>('RESEND_FROM_EMAIL') || 'SonriAndes <notificaciones@sonriandes.com>';
+    let fromConfig = this.configService.get<string>('RESEND_FROM_EMAIL') || 'SonriAndes <notificaciones@sonriandes.com>';
+    fromConfig = fromConfig.replace(/['"]/g, '').trim();
 
     try {
       const { data, error } = await this.resend.emails.send({
-        from: fromEmail,
+        from: fromConfig,
         to: [user.email as string],
         // Si el paciente presiona "Responder", te llegará a tu Gmail:
         replyTo: 'dentalsoft9@gmail.com',
