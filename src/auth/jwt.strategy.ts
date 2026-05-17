@@ -27,11 +27,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // Este método se ejecuta una vez que el token es validado
   async validate(payload: any) {
     // El 'payload' es el objeto que pusimos en el token al hacer login
-    // Podemos usarlo para hacer una última verificación, ej: si el usuario aún existe
     const user = await this.userRepository.findOneBy({ id: payload.sub });
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    
+    // 👇 EL CANDADO: Verificamos si no existe o si fue inhabilitado 👇
+    if (!user || user.isActive === false) {
+      throw new UnauthorizedException('Acceso denegado o usuario inhabilitado.');
     }
+    // 👆 ========================================================= 👆
+
     // Lo que retornamos aquí se adjuntará al objeto 'request' como 'request.user'
     return payload;
   }

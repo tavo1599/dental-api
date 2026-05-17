@@ -50,7 +50,8 @@ export class UsersService {
         tenant: { id: tenantId },
         isSuperAdmin: false,
       },
-      select: ['id', 'fullName', 'email', 'role'],
+      // 👇 AÑADIDO 'isActive' PARA EL FRONTEND 👇
+      select: ['id', 'fullName', 'email', 'role', 'isActive'],
     });
   }
 
@@ -61,7 +62,8 @@ export class UsersService {
         role: In([UserRole.DENTIST, UserRole.ADMIN]),
         isSuperAdmin: false,
       },
-      select: ['id', 'fullName', 'email', 'role'],
+      // 👇 AÑADIDO 'isActive' PARA EL FRONTEND 👇
+      select: ['id', 'fullName', 'email', 'role', 'isActive'],
     });
   }
 
@@ -172,5 +174,26 @@ export class UsersService {
       console.error(error);
       throw new InternalServerErrorException('Error al procesar o subir la foto de perfil.');
     }
+  }
+
+  // =================================================================
+  // 👇 NUEVO: CONTROL DE ACCESO (HABILITAR/INHABILITAR) 👇
+  // =================================================================
+
+  async updateAccessStatus(userId: string, tenantId: string, isActive: boolean) {
+    // Buscamos asegurando que el usuario pertenezca a la clínica de quien lo solicita
+    const user = await this.userRepository.findOne({
+      where: { id: userId, tenant: { id: tenantId } }
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado en su clínica.');
+    }
+
+    user.isActive = isActive;
+    await this.userRepository.save(user);
+
+    const accion = isActive ? 'restaurado' : 'revocado';
+    return { message: `El acceso del usuario ha sido ${accion} con éxito.` };
   }
 }

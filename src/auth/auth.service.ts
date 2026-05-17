@@ -36,11 +36,11 @@ export class AuthService {
       const newTenant = this.tenantRepository.create({
         name: clinicName,
         schema: clinicName.toLowerCase().replace(/\s+/g, '_'),
-        phone: clinicPhone,   // <-- Añadido
-        email: clinicEmail,   // <-- Añadido
-        address: clinicAddress, // <-- Añadido
-        plan: 'profesional', // Plan por defecto
-        maxUsers: 10,         // Límite del plan profesional
+        phone: clinicPhone,   
+        email: clinicEmail,   
+        address: clinicAddress, 
+        plan: 'profesional', 
+        maxUsers: 10,        
       });
       await this.tenantRepository.save(newTenant);
 
@@ -66,7 +66,8 @@ export class AuthService {
   }
 
   async login(loginDto: LoginAuthDto) {
-    const { email, password } = loginDto;
+    // 👇 MODIFICADO: Extraemos rememberMe del DTO 👇
+    const { email, password, rememberMe } = loginDto;
     
     const user = await this.userRepository.createQueryBuilder('user')
       .addSelect('user.password_hash')
@@ -76,6 +77,10 @@ export class AuthService {
     
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas.');
+    }
+
+    if (user.isActive === false) {
+      throw new UnauthorizedException('Tu acceso al sistema ha sido revocado. Contacta al administrador.');
     }
 
     if (!user.isSuperAdmin && user.tenant) {
@@ -96,29 +101,32 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    return this.generateTokenForUser(user);
+    // 👇 MODIFICADO: Pasamos el flag al generador de tokens 👇
+    return this.generateTokenForUser(user, rememberMe);
   }
   
-  
-generateTokenForUser(user: User) {
-  const payload = {
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    fullName: user.fullName,
-    isSuperAdmin: user.isSuperAdmin,
-    tenantId: user.tenant?.id,
-    tenantName: user.tenant?.name,
-    tenant: user.tenant,
-  };
+  // 👇 MODIFICADO: Recibe el parámetro booleano con un valor por defecto false 👇
+  generateTokenForUser(user: User, rememberMe: boolean = false) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      fullName: user.fullName,
+      isSuperAdmin: user.isSuperAdmin,
+      tenantId: user.tenant?.id,
+      tenantName: user.tenant?.name,
+      tenant: user.tenant,
+    };
 
-  return {
-    access_token: this.jwtService.sign(payload),
-  };
-}
+    return {
+      // 👇 CONFIGURACIÓN DINÁMICA DE EXPIRACIÓN 👇
+      access_token: this.jwtService.sign(payload, {
+        expiresIn: rememberMe ? '30d' : '2h', // 30 días si marca el check, 2 horas si no.
+      }),
+    };
+  }
 
-async findUserById(userId: string) {
-    // Busca al usuario y carga sus relaciones más importantes (el tenant)
+  async findUserById(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['tenant'],
@@ -126,26 +134,21 @@ async findUserById(userId: string) {
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
-    delete user.password_hash; // Nunca devuelvas el hash
+    delete user.password_hash; 
     return user;
   }
-
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const { email } = forgotPasswordDto;
     const user = await this.userRepository.findOneBy({ email });
 
-    // Por seguridad, no revelamos si el usuario no existe.
     if (!user) {
       return { message: 'Si existe una cuenta con este email, se ha enviado un enlace de recuperación.' };
     }
 
-    // Genera un token aleatorio
     const rawToken = crypto.randomBytes(32).toString('hex');
-    // Hashea el token antes de guardarlo en la BD
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     
-    // Establece la fecha de expiración (ej. 1 hora)
     const expirationDate = new Date();
     expirationDate.setHours(expirationDate.getHours() + 1);
 
@@ -154,7 +157,6 @@ async findUserById(userId: string) {
 
     await this.userRepository.save(user);
 
-    // Envía el correo usando el MailService (con el token SIN hashear)
     await this.mailService.sendPasswordResetEmail(user, rawToken);
     
     return { message: 'Si existe una cuenta con este email, se ha enviado un enlace de recuperación.' };
@@ -163,10 +165,8 @@ async findUserById(userId: string) {
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const { token, password } = resetPasswordDto;
 
-    // Hashea el token recibido para compararlo con el de la BD
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Busca al usuario por el token hasheado y que no haya expirado
     const user = await this.userRepository.createQueryBuilder('user')
       .where('user.resetPasswordToken = :token', { token: hashedToken })
       .andWhere('user.resetPasswordExpires > :now', { now: new Date() })
@@ -176,9 +176,7 @@ async findUserById(userId: string) {
       throw new BadRequestException('El token es inválido o ha expirado.');
     }
 
-    // Actualiza la contraseña
     user.password_hash = await bcrypt.hash(password, 10);
-    // Limpia los campos del token para que no se pueda reutilizar
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
     
@@ -188,31 +186,26 @@ async findUserById(userId: string) {
   }
 
   async getFullUserProfile(userId: string) {
-    // Busca el usuario en la base de datos y carga su relación con tenant
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['tenant'],
     });
-    // No enviamos la contraseña
     delete user.password_hash;
     return user;
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-  const user = await this.userRepository.findOneBy({ id: userId });
-  if (!user) {
-    throw new NotFoundException('Usuario no encontrado');
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (dto.fullName) user.fullName = dto.fullName;
+    if (dto.phone) user.phone = dto.phone;
+
+    await this.userRepository.save(user);
+
+    delete user.password_hash;
+    return user;
   }
-
-  // Actualiza solo los campos que vienen en el DTO
-  if (dto.fullName) user.fullName = dto.fullName;
-  if (dto.phone) user.phone = dto.phone;
-
-  await this.userRepository.save(user);
-
-  // No devolvemos la contraseña
-  delete user.password_hash;
-  return user;
-}
-  
 }

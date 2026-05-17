@@ -21,11 +21,8 @@ export class User {
   @Column()
   fullName: string;
 
-    // --- AÑADE ESTA COLUMNA ---
   @Column({ nullable: true })
   phone?: string;
-  // --- FIN ---
-
 
   @Column({
     type: 'enum',
@@ -48,12 +45,16 @@ export class User {
 
   @Column({ type: 'boolean', default: false })
   isSuperAdmin: boolean;
-  // --- FIN ---
+
+  // 👇 --- NUEVO: COLUMNA PARA CONTROL DE ACCESO --- 👇
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+  // 👆 --- FIN --- 👆
 
   @ManyToOne(() => Tenant, { nullable: true, eager: true })
   tenant: Tenant | null;
 
-   // Guarda el token para resetear la contraseña
+  // Guarda el token para resetear la contraseña
   @Column({ type: 'varchar', nullable: true })
   resetPasswordToken?: string | null;
 
