@@ -3,11 +3,14 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SocketIoAdapter } from './socket-io.adapter';
+import compression from 'compression';
 
 async function bootstrap() {
   // Mantenemos el tipo NestExpressApplication por si necesitas acceder a métodos específicos de Express en el futuro,
   // aunque ya no usamos useStaticAssets.
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  app.use(compression());
 
   app.useWebSocketAdapter(new SocketIoAdapter(app));
 
