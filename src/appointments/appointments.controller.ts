@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param, Delete, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -17,10 +17,23 @@ export class AppointmentsController {
   }
 
   @Get()
-  findAll(@Req() req) {
-    const { tenantId } = req.user;
-    return this.appointmentsService.findAll(tenantId);
-  }
+@Get()
+findAll(
+  @Req() req,
+  @Query('doctorId') doctorId?: string,
+  @Query('status') status?: string, // puede venir como "scheduled,confirmed"
+  @Query('startDate') startDate?: string,
+  @Query('endDate') endDate?: string,
+) {
+  const { tenantId } = req.user;
+  const statusArray = status ? status.split(',') as AppointmentStatus[] : undefined;
+  return this.appointmentsService.findAll(tenantId, {
+    doctorId,
+    status: statusArray,
+    startDate,
+    endDate,
+  });
+}
 
   @Patch(':id/status')
   updateStatus(

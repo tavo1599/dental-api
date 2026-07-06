@@ -78,13 +78,38 @@ export class AppointmentsService {
     return fullAppointment;
   }
 
-  async findAll(tenantId: string) {
-    return this.appointmentRepository.find({
-      where: { tenant: { id: tenantId } },
-      relations: ['patient', 'doctor', 'doctor.tenant'],
-      order: { startTime: 'ASC' },
-    });
+async findAll(
+  tenantId: string,
+  filters?: {
+    doctorId?: string;
+    status?: AppointmentStatus[];
+    startDate?: string;
+    endDate?: string;
+  },
+) {
+  const where: any = { tenant: { id: tenantId } };
+
+  if (filters?.doctorId) {
+    where.doctor = { id: filters.doctorId };
   }
+
+  if (filters?.status?.length) {
+    where.status = In(filters.status);
+  } else {
+    // Por defecto, oculta canceladas y no-show si no se pide explícitamente
+    where.status = Not(In([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]));
+  }
+
+  if (filters?.startDate && filters?.endDate) {
+    where.startTime = Between(new Date(filters.startDate), new Date(filters.endDate));
+  }
+
+  return this.appointmentRepository.find({
+    where,
+    relations: ['patient', 'doctor'], // quité 'doctor.tenant', normalmente no lo necesitas si ya filtras por tenantId
+    order: { startTime: 'ASC' },
+  });
+}
   
   async findAllForPatient(patientId: string, tenantId: string) {
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
