@@ -4,6 +4,7 @@ import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentTimeDto } from './dto/update-appointment-time.dto';
+import { AppointmentStatus } from './entities/appointment.entity';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('appointments')
