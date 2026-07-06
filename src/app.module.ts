@@ -77,7 +77,7 @@ import { DentalBridge } from './odontogram/entities/dental-bridge.entity';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
         entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge],
-        synchronize: true, // ¡Solo para desarrollo!
+        synchronize: false, // ¡Solo para desarrollo!
       }),
     }),
 
