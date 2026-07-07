@@ -82,7 +82,7 @@ async findAll(
   tenantId: string,
   filters?: {
     doctorId?: string;
-    status?: AppointmentStatus[];
+    status?: AppointmentStatus[] | 'all';
     startDate?: string;
     endDate?: string;
   },
@@ -93,20 +93,25 @@ async findAll(
     where.doctor = { id: filters.doctorId };
   }
 
-  if (filters?.status?.length) {
+  if (filters?.status === 'all') {
+    // Se pidió explícitamente TODOS los estados -> no aplicar ningún filtro
+  } else if (filters?.status?.length) {
     where.status = In(filters.status);
   } else {
-    // Por defecto, oculta canceladas y no-show si no se pide explícitamente
+    // Comportamiento por defecto (vista de Agenda): oculta canceladas y no-show
     where.status = Not(In([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]));
   }
 
   if (filters?.startDate && filters?.endDate) {
-    where.startTime = Between(new Date(filters.startDate), new Date(filters.endDate));
+    const start = new Date(filters.startDate);
+    const end = new Date(filters.endDate);
+    end.setHours(23, 59, 59, 999); // extiende hasta el final del día, para que el rango no quede vacío
+    where.startTime = Between(start, end);
   }
 
   return this.appointmentRepository.find({
     where,
-    relations: ['patient', 'doctor'], // quité 'doctor.tenant', normalmente no lo necesitas si ya filtras por tenantId
+    relations: ['patient', 'doctor'],
     order: { startTime: 'ASC' },
   });
 }
