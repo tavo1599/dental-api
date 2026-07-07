@@ -17,24 +17,31 @@ export class AppointmentsController {
     return this.appointmentsService.create(createAppointmentDto, tenantId);
   }
 
-  @Get()
 @Get()
-findAll(
-  @Req() req,
-  @Query('doctorId') doctorId?: string,
-  @Query('status') status?: string, // puede venir como "scheduled,confirmed"
-  @Query('startDate') startDate?: string,
-  @Query('endDate') endDate?: string,
-) {
-  const { tenantId } = req.user;
-  const statusArray = status ? status.split(',') as AppointmentStatus[] : undefined;
-  return this.appointmentsService.findAll(tenantId, {
-    doctorId,
-    status: statusArray,
-    startDate,
-    endDate,
-  });
-}
+  findAll(
+    @Req() req,
+    @Query('doctorId') doctorId?: string,
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const { tenantId } = req.user;
+
+    let statusFilter: AppointmentStatus[] | 'all' | undefined;
+
+    if (status === 'all') {
+      statusFilter = 'all';
+    } else if (status) {
+      statusFilter = status.split(',') as AppointmentStatus[];
+    }
+
+    return this.appointmentsService.findAll(tenantId, {
+      doctorId,
+      status: statusFilter,
+      startDate,
+      endDate,
+    });
+  }
 
   @Patch(':id/status')
   updateStatus(
