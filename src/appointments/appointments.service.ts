@@ -102,12 +102,13 @@ async findAll(
     where.status = Not(In([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]));
   }
 
-  if (filters?.startDate && filters?.endDate) {
-    const start = new Date(filters.startDate);
-    const end = new Date(filters.endDate);
-    end.setHours(23, 59, 59, 999); // extiende hasta el final del día, para que el rango no quede vacío
-    where.startTime = Between(start, end);
-  }
+if (filters?.startDate && filters?.endDate) {
+  // Se construye explícitamente con el offset de Perú (-05:00),
+  // igual que se hace al crear/editar citas en el resto del servicio.
+  const start = new Date(`${filters.startDate}T00:00:00-05:00`);
+  const end = new Date(`${filters.endDate}T23:59:59.999-05:00`);
+  where.startTime = Between(start, end);
+}
 
   return this.appointmentRepository.find({
     where,
