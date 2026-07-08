@@ -103,10 +103,14 @@ async findAll(
   }
 
 if (filters?.startDate && filters?.endDate) {
-  // Se construye explícitamente con el offset de Perú (-05:00),
-  // igual que se hace al crear/editar citas en el resto del servicio.
-  const start = new Date(`${filters.startDate}T00:00:00-05:00`);
-  const end = new Date(`${filters.endDate}T23:59:59.999-05:00`);
+  // Extrae solo "YYYY-MM-DD" sin importar si el string ya trae hora o no,
+  // y reconstruye con el offset de Perú explícito.
+  const startDatePart = filters.startDate.split('T')[0];
+  const endDatePart = filters.endDate.split('T')[0];
+
+  const start = new Date(`${startDatePart}T00:00:00-05:00`);
+  const end = new Date(`${endDatePart}T23:59:59.999-05:00`);
+
   where.startTime = Between(start, end);
 }
 
