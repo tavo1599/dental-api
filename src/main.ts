@@ -43,7 +43,9 @@ async function bootstrap() {
   });
   // -----------------------------------
 
-  app.useGlobalPipes(new ValidationPipe());
+  // transform: true aplica los @Type() de los DTOs (ej. convertir "150.00" a 150).
+  // NO activamos enableImplicitConversion para no alterar el resto de endpoints.
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
   // --- ELIMINADO: app.useStaticAssets ---
   // Ya no servimos la carpeta 'uploads' localmente.
