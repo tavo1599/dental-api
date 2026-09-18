@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DemoModule } from './demo/demo.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -51,7 +52,6 @@ import { PlannedTreatment } from './planned-treatments/entities/planned-treatmen
 import { PlannedTreatmentsModule } from './planned-treatments/planned-treatments.module';
 import { ConsentTemplate } from './consent-templates/entities/consent-template.entity';
 import { ConsentTemplatesModule } from './consent-templates/consent-templates.module';
-import { GoogleCalendarModule } from './google-calendar/google-calendar.module';
 import { Tooth } from './odontogram/entities/tooth.entity';
 import { MedicalHistory } from './patients/entities/medical-history.entity';
 import { OdontopediatricHistory } from './patients/entities/odontopediatric-history.entity';
@@ -64,6 +64,10 @@ import { DentalBridge } from './odontogram/entities/dental-bridge.entity';
   imports: [
     // Carga las variables de entorno del archivo .env
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // Limite por defecto. El guard NO es global: se aplica solo donde hace falta
+    // (ver auth.controller.ts) para no provocar 429 inesperados en el resto.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
 
     // Configura la conexión a la base de datos de forma ASÍNCRONA
     TypeOrmModule.forRootAsync({
@@ -108,7 +112,6 @@ import { DentalBridge } from './odontogram/entities/dental-bridge.entity';
     Cie10Module,
     PlannedTreatmentsModule,
     ConsentTemplatesModule,
-    GoogleCalendarModule,
     DemoModule,
 
   ],

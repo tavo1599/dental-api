@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository, LessThan, MoreThan, Not, In } from 'typeorm'; // <-- NUEVO: Agregado 'In'
 import { Appointment, AppointmentStatus } from './entities/appointment.entity';
@@ -7,11 +7,9 @@ import { Patient } from '../patients/entities/patient.entity';
 import { User } from '../users/entities/user.entity';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentTimeDto } from './dto/update-appointment-time.dto';
-import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 
 @Injectable()
 export class AppointmentsService {
-  private readonly logger = new Logger(AppointmentsService.name);
 
   constructor(
     @InjectRepository(Appointment)
@@ -20,7 +18,6 @@ export class AppointmentsService {
     private readonly patientRepository: Repository<Patient>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly googleCalendarService: GoogleCalendarService,
   ) {}
 
   async create(createDto: CreateAppointmentDto, tenantId: string) {
@@ -68,12 +65,6 @@ export class AppointmentsService {
       where: { id: savedAppointment.id },
       relations: ['patient', 'doctor', 'doctor.tenant'],
     });
-
-    if (fullAppointment) {
-      this.googleCalendarService.createEvent(tenantId, fullAppointment).catch(err => {
-        this.logger.error('Falló la creación del evento en Google Calendar', err);
-      });
-    }
 
     return fullAppointment;
   }
@@ -221,14 +212,6 @@ if (filters?.startDate && filters?.endDate) {
     
     if (!appointment) {
       throw new NotFoundException('Cita no encontrada.');
-    }
-
-    if (appointment.googleEventId) {
-      try {
-        await this.googleCalendarService.deleteEvent(tenantId, appointment.googleEventId);
-      } catch (error) {
-        this.logger.warn('No se pudo eliminar el evento de Google Calendar.');
-      }
     }
 
     await this.appointmentRepository.remove(appointment);

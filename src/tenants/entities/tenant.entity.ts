@@ -104,15 +104,6 @@ export class Tenant {
   @Column({ type: 'date', nullable: true })
   nextPaymentDate: Date | null;
 
-  @Column({ type: 'text', nullable: true })
-  googleAccessToken: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  googleRefreshToken: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  googleCalendarId: string | null; 
-
   @Column({ type: 'varchar', nullable: true })
   address: string | null;
 
