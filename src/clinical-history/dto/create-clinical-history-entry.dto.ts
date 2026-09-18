@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsPositive, MaxLength, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer'; // <-- IMPORTANTE: Importar esto
 
 export class CreateClinicalHistoryEntryDto {
@@ -25,30 +25,6 @@ export class CreateClinicalHistoryEntryDto {
   @IsString()
   @IsOptional()
   indications?: string;
-
-  // --- CAMPOS DE SIGNOS VITALES ---
-  @IsString()
-  @IsOptional()
-  @MaxLength(10)
-  bloodPressure?: string;
-
-  @IsNumber()
-  @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? null : Number(value))) // Convierte '' a null
-  @IsPositive()
-  heartRate?: number;
-
-  @IsNumber()
-  @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? null : Number(value)))
-  @IsPositive()
-  temperature?: number;
-
-  @IsNumber()
-  @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? null : Number(value)))
-  @IsPositive()
-  respiratoryRate?: number;
 
   // --- CAMPOS PARA PRÓXIMA CITA ---
   

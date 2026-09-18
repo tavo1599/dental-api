@@ -87,9 +87,16 @@ export class DocumentsService {
     templateId: string,
     signatureBase64: string,
   ) {
-    // A. Generar HTML
-    const htmlContent = await this.consentService.generate(templateId, patientId, doctor);
-    const patient = await this.patientRepository.findOneBy({ id: patientId });
+    // A. Generar HTML (generate() ya valida que plantilla y paciente sean de este tenant)
+    const htmlContent = await this.consentService.generate(templateId, patientId, doctor, tenantId);
+    // Doble verificacion: el paciente debe pertenecer a la clinica del usuario autenticado.
+    const patient = await this.patientRepository.findOneBy({
+      id: patientId,
+      tenant: { id: tenantId },
+    });
+    if (!patient) {
+      throw new NotFoundException('Paciente no encontrado o no pertenece a esta clínica.');
+    }
 
     const signatureImgHtml = `<img src="data:image/png;base64,${signatureBase64}" alt="Firma del Paciente" style="height: 80px; display: block; margin: 0 auto;"/>`;
     const placeholderRegex = /<div id="patient-signature-placeholder"[\s\S]*?<\/div>/;

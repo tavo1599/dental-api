@@ -19,7 +19,7 @@ export class ConsentTemplatesController {
 
   @Post('generate')
   generate(@Body() body: { templateId: string; patientId: string }, @Req() req) {
-    return this.consentTemplatesService.generate(body.templateId, body.patientId, req.user);
+    return this.consentTemplatesService.generate(body.templateId, body.patientId, req.user, req.user.tenantId);
   }
 
   // --- RUTA 'create' CORREGIDA ---

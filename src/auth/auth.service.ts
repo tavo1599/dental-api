@@ -2,10 +2,11 @@ import {
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
-  BadRequestException
+  BadRequestException,
+  ConflictException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Tenant, TenantStatus } from '../tenants/entities/tenant.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { RegisterAuthDto } from './dto/register-auth.dto';
@@ -28,38 +29,83 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
+    private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Convierte el nombre de la clinica en un identificador seguro para la columna
+   * 'schema' (que es UNIQUE): quita tildes y la enye, colapsa todo lo que no sea
+   * alfanumerico en '_' y, si ya existe, agrega un sufijo corto unico.
+   */
+  private async generateUniqueSchema(clinicName: string): Promise<string> {
+    const base =
+      clinicName
+        .normalize('NFD')                 // separa cada letra de su tilde
+        .replace(/[\u0300-\u036f]/g, '') // quita las tildes (ñ -> n)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')      // cualquier otra cosa -> guion bajo
+        .replace(/^_+|_+$/g, '')          // sin guiones al principio/final
+        .slice(0, 40) || 'clinica';
+
+    const exists = await this.tenantRepository.findOne({
+      where: { schema: base },
+      select: { id: true },
+    });
+    if (!exists) {
+      return base;
+    }
+    return `${base}_${crypto.randomUUID().slice(0, 8)}`;
+  }
 
   async register(registerDto: RegisterAuthDto) {
     const { clinicName, clinicPhone, clinicEmail, clinicAddress, email, fullName, password, phone } = registerDto;
+
+    // Mensaje claro en vez de dejar que reviente como 500 por el indice UNIQUE.
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+      select: { id: true },
+    });
+    if (existingUser) {
+      throw new ConflictException('Ya existe una cuenta registrada con este email.');
+    }
+
+    const schema = await this.generateUniqueSchema(clinicName);
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     try {
-      const newTenant = this.tenantRepository.create({
-        name: clinicName,
-        schema: clinicName.toLowerCase().replace(/\s+/g, '_'),
-        phone: clinicPhone,   
-        email: clinicEmail,   
-        address: clinicAddress, 
-        plan: 'profesional', 
-        maxUsers: 10,        
+      // Transaccion: si falla la creacion del User, el Tenant tampoco se persiste.
+      return await this.dataSource.transaction(async (manager) => {
+        const newTenant = manager.create(Tenant, {
+          name: clinicName,
+          schema,
+          phone: clinicPhone,
+          email: clinicEmail,
+          address: clinicAddress,
+          plan: 'profesional',
+          maxUsers: 10,
+        });
+        await manager.save(newTenant);
+
+        const newUser = manager.create(User, {
+          email,
+          fullName: fullName,
+          password_hash: hashedPassword,
+          role: UserRole.ADMIN,
+          tenant: newTenant,
+          phone: phone,
+        });
+        await manager.save(newUser);
+
+        delete newUser.password_hash;
+        return newUser;
       });
-      await this.tenantRepository.save(newTenant);
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const newUser = this.userRepository.create({
-        email,
-        fullName: fullName,
-        password_hash: hashedPassword,
-        role: UserRole.ADMIN,
-        tenant: newTenant,
-        phone: phone,
-      });
-      await this.userRepository.save(newUser);
-
-      delete newUser.password_hash;
-      return newUser;
-      
     } catch (error) {
+      // 23505 = unique_violation. Cubre la carrera entre dos registros simultaneos
+      // que el chequeo previo no puede evitar.
+      const code = error?.driverError?.code ?? error?.code;
+      if (code === '23505') {
+        throw new ConflictException('Ya existe una cuenta o clínica registrada con esos datos.');
+      }
       console.error(error);
       throw new InternalServerErrorException('Error creating account');
     }
@@ -107,15 +153,33 @@ export class AuthService {
   
   // 👇 MODIFICADO: Recibe el parámetro booleano con un valor por defecto false 👇
   generateTokenForUser(user: User, rememberMe: boolean = false) {
+    const tenant = user.tenant;
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role,
       fullName: user.fullName,
       isSuperAdmin: user.isSuperAdmin,
-      tenantId: user.tenant?.id,
-      tenantName: user.tenant?.name,
-      tenant: user.tenant,
+      tenantId: tenant?.id,
+      tenantName: tenant?.name,
+      // LISTA BLANCA EXPLICITA. Un JWT es base64, no esta cifrado: cualquiera que
+      // tenga el token puede leer este objeto. Nunca agregar aqui credenciales,
+      // tokens de terceros ni ningun otro secreto.
+      tenant: tenant
+        ? {
+            id: tenant.id,
+            name: tenant.name,
+            logoUrl: tenant.logoUrl,
+            address: tenant.address,
+            phone: tenant.phone,
+            email: tenant.email,
+            plan: tenant.plan,
+            status: tenant.status,
+            domainSlug: tenant.domainSlug,
+            systemSettings: tenant.systemSettings,
+            websiteConfig: tenant.websiteConfig,
+          }
+        : null,
     };
 
     return {
@@ -190,6 +254,9 @@ export class AuthService {
       where: { id: userId },
       relations: ['tenant'],
     });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
     delete user.password_hash;
     return user;
   }

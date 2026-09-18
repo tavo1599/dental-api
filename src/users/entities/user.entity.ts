@@ -15,7 +15,10 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
+  // select: false -> nunca se incluye en un find/findOne normal. Quien necesite
+  // comparar la contrasena debe pedirlo con .addSelect('user.password_hash')
+  // (ver auth.service.login y users.service.changePassword).
+  @Column({ select: false })
   password_hash: string;
 
   @Column()

@@ -22,7 +22,10 @@ export class RolesGuard implements CanActivate {
     // 2. Obtiene el usuario de la petición (que fue adjuntado por JwtStrategy)
     const { user } = context.switchToHttp().getRequest();
 
-    // 3. Compara el rol del usuario con los roles requeridos
-    return requiredRoles.some((role) => user.role?.includes(role));
+    // 3. Compara el rol del usuario con los roles requeridos.
+    // Comparacion exacta contra el array: user.role es un string unico, no una
+    // lista. Usar user.role.includes(role) haria coincidencias por substring y
+    // daria acceso indebido en cuanto un rol sea prefijo/sufijo de otro.
+    return requiredRoles.includes(user.role);
   }
 }

@@ -57,10 +57,18 @@ export class ConsentTemplatesService {
     }
   }
 
-  async generate(templateId: string, patientId: string, doctor: User) {
-    const template = await this.templateRepository.findOneBy({ id: templateId });
+  async generate(templateId: string, patientId: string, doctor: User, tenantId: string) {
+    // La plantilla debe ser de esta clínica o del sistema (tenant nulo), nunca la
+    // plantilla privada de otra clínica.
+    const template = await this.templateRepository.findOne({
+      where: [
+        { id: templateId, tenant: { id: tenantId } },
+        { id: templateId, tenant: IsNull() },
+      ],
+    });
+    // El paciente SIEMPRE debe pertenecer a la clínica del usuario autenticado.
     const patient = await this.patientRepository.findOne({
-      where: { id: patientId },
+      where: { id: patientId, tenant: { id: tenantId } },
       relations: ['tenant'],
     });
 
