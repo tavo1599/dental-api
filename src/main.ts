@@ -4,6 +4,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SocketIoAdapter } from './socket-io.adapter';
 const compression = require('compression');
+// Mismo patron que compression: el tsconfig no tiene esModuleInterop.
+const helmet = require('helmet');
 
 async function bootstrap() {
   // Mantenemos el tipo NestExpressApplication por si necesitas acceder a métodos específicos de Express en el futuro,
@@ -11,6 +13,14 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(compression());
+
+  // Cabeceras de seguridad HTTP (HSTS, noSniff, frameguard, etc.).
+  app.use(helmet());
+
+  // La API corre detras de un proxy inverso (el que termina TLS en
+  // api.sonriandes.com). Sin esto, req.ip seria SIEMPRE la IP del proxy y el
+  // rate limit contaria a todos los usuarios como si fueran uno solo.
+  app.set('trust proxy', 1);
 
   app.useWebSocketAdapter(new SocketIoAdapter(app));
 

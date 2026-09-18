@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -11,6 +12,7 @@ import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
+    ThrottlerModule,
     ConfigModule,
     TypeOrmModule.forFeature([User, Tenant]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
