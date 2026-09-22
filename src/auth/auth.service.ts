@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Tenant, TenantStatus } from '../tenants/entities/tenant.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import { Branch } from '../branches/entities/branch.entity';
 import { RegisterAuthDto } from './dto/register-auth.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -86,6 +87,22 @@ export class AuthService {
         });
         await manager.save(newTenant);
 
+        // TODA clinica nace con su sede principal, use sucursales o no.
+        // Sin ella no podria registrar ni una cita: branchId es obligatorio en
+        // citas, presupuestos, pagos y gastos. Si el modulo de sucursales esta
+        // apagado la clinica ni se entera de que existe: trabaja siempre sobre
+        // esta sede.
+        const mainBranch = manager.create(Branch, {
+          name: 'Sede Principal',
+          isMain: true,
+          isActive: true,
+          address: clinicAddress ?? null,
+          phone: clinicPhone ?? null,
+          email: clinicEmail ?? null,
+          tenant: newTenant,
+        });
+        await manager.save(mainBranch);
+
         const newUser = manager.create(User, {
           email,
           fullName: fullName,
@@ -93,6 +110,8 @@ export class AuthService {
           role: UserRole.ADMIN,
           tenant: newTenant,
           phone: phone,
+          // El titular trabaja en la sede principal desde el primer momento.
+          branches: [mainBranch],
         });
         await manager.save(newUser);
 

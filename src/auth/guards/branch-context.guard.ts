@@ -54,6 +54,18 @@ export class BranchContextGuard implements CanActivate {
     const requested = request.headers['x-branch-id'] as string | undefined;
 
     if (!requested) {
+      // Sin el modulo de sucursales activo no hay nada que consolidar: la
+      // clinica tiene una sola sede y se trabaja siempre sobre ella.
+      //
+      // Este caso va PRIMERO a proposito. Si no, un admin caeria en el
+      // "consolidado" de abajo y se quedaria sin poder crear citas,
+      // presupuestos ni gastos, porque crear exige una sede concreta y sin el
+      // modulo activo no tiene selector para elegirla.
+      if (user.branchesEnabled !== true) {
+        request.branchId = assigned[0] ?? (await this.mainBranchId(user.tenantId));
+        return true;
+      }
+
       if (canSeeAllBranches) {
         request.branchId = null; // consolidado
         return true;
@@ -90,5 +102,18 @@ export class BranchContextGuard implements CanActivate {
     }
 
     throw new ForbiddenException('No tienes acceso a esta sede.');
+  }
+
+  /**
+   * Sede principal de la clinica. Solo se consulta como red de seguridad,
+   * cuando el usuario no tiene ninguna sede asignada.
+   */
+  private async mainBranchId(tenantId: string): Promise<string | null> {
+    if (!tenantId) return null;
+    const branch = await this.branchRepository.findOne({
+      where: { tenant: { id: tenantId }, isMain: true },
+      select: { id: true },
+    });
+    return branch?.id ?? null;
   }
 }

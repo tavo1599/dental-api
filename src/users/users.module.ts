@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { Branch } from '../branches/entities/branch.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { UsersController } from './users.controller';
@@ -7,7 +8,7 @@ import { Tenant } from '../tenants/entities/tenant.entity'; // <-- 1. Importa la
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Tenant]) // <-- 2. Añade Tenant aquí
+    TypeOrmModule.forFeature([User, Tenant, Branch]) // <-- 2. Añade Tenant aquí
   ],
   controllers: [UsersController],
   providers: [UsersService],

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, InternalServerError
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
+import { Branch } from '../branches/entities/branch.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -19,6 +20,8 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
   ) {}
 
   async create(createUserDto: CreateUserDto, tenantId: string): Promise<User> {
@@ -54,6 +57,26 @@ export class UsersService {
       tenant: { id: tenantId },
     });
     const savedUser = await this.userRepository.save(newUser);
+
+    // Todo usuario nace asignado a la sede principal de su clinica. Sin esto
+    // se quedaria sin ninguna sede y no podria ni ver la agenda: el contexto
+    // de sede no sabria sobre cual trabaja.
+    const mainBranch = await this.branchRepository.findOne({
+      where: { tenant: { id: tenantId }, isMain: true },
+    });
+    if (mainBranch) {
+      await this.userRepository
+        .createQueryBuilder()
+        .relation(User, 'branches')
+        .of(savedUser.id)
+        .add(mainBranch.id)
+        .catch((error: any) => {
+          // 23505 = ya estaba asignado, que es el resultado buscado igual.
+          const code = error?.driverError?.code ?? error?.code;
+          if (code !== '23505') throw error;
+        });
+    }
+
     delete savedUser.password_hash;
     return savedUser;
   }
