@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
@@ -112,9 +112,83 @@ export class UsersService {
     return user;
   }
 
-  async remove(id: string) {
-    const user = await this.findOne(id);
-    return this.userRepository.remove(user);
+  /**
+   * Borra un usuario. En la practica casi nunca se puede: en cuanto ha atendido
+   * una cita o firmado un presupuesto, su nombre esta en registros clinicos y
+   * la base lo protege. Eso es deseable -borrarlo dejaria historias sin autor-,
+   * pero hay que explicarlo en vez de devolver un 500.
+   *
+   * Para dar de baja a alguien que ya no trabaja en la clinica se usa
+   * "bloquear acceso" (isActive = false), que conserva su historial.
+   */
+  async remove(id: string, tenantId: string, currentUserId?: string) {
+    // Filtrado por clinica: sin esto, un admin podria borrar al usuario de
+    // OTRA clinica con solo conocer su id.
+    const user = await this.userRepository.findOne({
+      where: { id, tenant: { id: tenantId } },
+    });
+    if (!user) {
+      throw new NotFoundException(
+        'Usuario no encontrado o no pertenece a esta clínica.',
+      );
+    }
+
+    if (currentUserId && user.id === currentUserId) {
+      throw new BadRequestException('No puedes eliminar tu propio usuario.');
+    }
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException(
+        'No se puede eliminar al titular de la clínica. Transfiere la administración a otra persona primero.',
+      );
+    }
+
+    try {
+      return await this.userRepository.remove(user);
+    } catch (error: any) {
+      // 23503 = foreign_key_violation
+      const code = error?.driverError?.code ?? error?.code;
+      if (code === '23503') {
+        throw new ConflictException(await this.buildInUseMessage(user));
+      }
+      throw error;
+    }
+  }
+
+  /** Cuenta en que registros aparece el usuario, para explicar el bloqueo. */
+  private async buildInUseMessage(user: User): Promise<string> {
+    const [row] = await this.userRepository.query(
+      `SELECT
+         (SELECT count(*) FROM appointments WHERE "doctorId" = $1)              AS citas,
+         (SELECT count(*) FROM budgets WHERE "doctorId" = $1)                   AS presupuestos,
+         (SELECT count(*) FROM payments WHERE "registeredById" = $1)            AS pagos,
+         (SELECT count(*) FROM clinical_history_entries WHERE "userId" = $1)    AS historial,
+         (SELECT count(*) FROM prescriptions WHERE "doctorId" = $1)             AS recetas`,
+      [user.id],
+    );
+
+    const etiquetas: [string, string, string][] = [
+      ['citas', 'cita', 'citas'],
+      ['presupuestos', 'presupuesto', 'presupuestos'],
+      ['pagos', 'pago registrado', 'pagos registrados'],
+      ['historial', 'entrada de historial clínico', 'entradas de historial clínico'],
+      ['recetas', 'receta', 'recetas'],
+    ];
+
+    const partes = etiquetas
+      .map(([campo, singular, plural]) => {
+        const n = Number(row?.[campo] ?? 0);
+        return n > 0 ? `${n} ${n === 1 ? singular : plural}` : null;
+      })
+      .filter(Boolean);
+
+    const detalle = partes.length
+      ? ` Tiene ${partes.join(', ')}.`
+      : '';
+
+    return (
+      `No se puede eliminar a ${user.fullName} porque su nombre figura en registros clínicos.${detalle} ` +
+      'Si ya no trabaja en la clínica, usa "Bloquear acceso": no podrá entrar y su historial se conserva.'
+    );
   }
 
   // ------------------------------------------------------------------

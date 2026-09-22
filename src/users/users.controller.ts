@@ -135,8 +135,12 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string, @Req() req) {
+    return this.usersService.remove(
+      id,
+      req.user.tenantId,
+      req.user.id ?? req.user.sub,
+    );
   }
 
 }
