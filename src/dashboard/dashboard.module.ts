@@ -6,6 +6,7 @@ import { Payment } from '../payments/entities/payment.entity';
 import { Budget } from '../budgets/entities/budget.entity'; // <-- 1. Importa la entidad que falta
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
+import { Branch } from '../branches/entities/branch.entity';
 
 @Module({
   imports: [
@@ -13,7 +14,8 @@ import { DashboardService } from './dashboard.service';
       Appointment, 
       Patient, 
       Payment, 
-      Budget // <-- 2. Añádela a la lista
+      Budget, // <-- 2. Añádela a la lista
+      Branch, // la necesita BranchContextGuard
     ])
   ],
   controllers: [DashboardController],
