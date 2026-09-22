@@ -16,6 +16,7 @@ import { UpdateBranchDto } from './dto/update-branch.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
+import { BranchesEnabledGuard } from './guards/branches-enabled.guard';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('branches')
@@ -33,28 +34,28 @@ export class BranchesController {
 
   @Get()
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   findAll(@Req() req) {
     return this.branchesService.findAll(req.user.tenantId);
   }
 
   @Get(':id')
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   findOne(@Param('id') id: string, @Req() req) {
     return this.branchesService.findOne(id, req.user.tenantId);
   }
 
   @Post()
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   create(@Body() dto: CreateBranchDto, @Req() req) {
     return this.branchesService.create(dto, req.user.tenantId);
   }
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   update(@Param('id') id: string, @Body() dto: UpdateBranchDto, @Req() req) {
     return this.branchesService.update(id, dto, req.user.tenantId);
   }
@@ -62,14 +63,14 @@ export class BranchesController {
   /** Desactiva (no borra) la sede. */
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   deactivate(@Param('id') id: string, @Req() req) {
     return this.branchesService.deactivate(id, req.user.tenantId);
   }
 
   @Patch(':id/activate')
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   activate(@Param('id') id: string, @Req() req) {
     return this.branchesService.activate(id, req.user.tenantId);
   }
@@ -80,7 +81,7 @@ export class BranchesController {
    */
   @Patch(':id/admin')
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   assignAdmin(
     @Param('id') id: string,
     @Body('userId') userId: string,
@@ -91,7 +92,7 @@ export class BranchesController {
 
   @Delete(':id/admin')
   @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, BranchesEnabledGuard)
   removeAdmin(@Param('id') id: string, @Req() req) {
     return this.branchesService.removeAdmin(id, req.user.tenantId);
   }

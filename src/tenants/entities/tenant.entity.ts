@@ -82,6 +82,20 @@ export class Tenant {
   @Column({ name: 'isTest', type: 'boolean', default: false })
   isTest: boolean;
 
+  /**
+   * Modulo de sucursales. Apagado por defecto: una clinica solo lo ve cuando
+   * el super admin se lo habilita.
+   *
+   * Vive en su PROPIA columna y no en systemSettings a proposito: ese jsonb lo
+   * edita el admin de la clinica desde Ajustes, asi que podria activarselo el
+   * mismo. Esto solo se cambia desde el panel de super admin.
+   *
+   * Con la bandera apagada la clinica sigue teniendo su "Sede Principal" y todo
+   * funciona igual: lo unico que cambia es que no ve la interfaz de sedes.
+   */
+  @Column({ type: 'boolean', default: false })
+  branchesEnabled: boolean;
+
   @Column({ unique: true })
   schema: string;
 

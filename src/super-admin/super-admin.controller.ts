@@ -82,6 +82,15 @@ export class SuperAdminController {
     return this.superAdminService.updateTenantPlan(id, dto);
   }
 
+  /** Activa o desactiva el modulo de sucursales para una clinica. */
+  @Patch('tenants/:id/branches-enabled')
+  setBranchesEnabled(
+    @Param('id') id: string,
+    @Body('enabled') enabled: boolean,
+  ) {
+    return this.superAdminService.setBranchesEnabled(id, enabled === true);
+  }
+
   @Patch('tenants/:id/renew')
   renewSubscription(@Param('id') id: string) {
   return this.superAdminService.renewSubscription(id);

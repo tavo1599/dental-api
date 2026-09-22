@@ -157,6 +157,29 @@ async impersonate(userId: string) {
     }
   }
 
+  /**
+   * Activa o desactiva el modulo de sucursales para una clinica. Es lo que se
+   * negocia aparte del plan: la clinica no puede activarselo sola.
+   *
+   * Apagarlo NO borra nada: sus sedes y todo lo registrado en ellas siguen ahi,
+   * simplemente deja de ver la interfaz y vuelve a operar sobre su sede
+   * principal.
+   */
+  async setBranchesEnabled(tenantId: string, enabled: boolean) {
+    const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
+    if (!tenant) {
+      throw new NotFoundException('Clínica no encontrada.');
+    }
+    tenant.branchesEnabled = enabled;
+    await this.tenantRepository.save(tenant);
+    return {
+      message: enabled
+        ? `Sucursales ACTIVADO para "${tenant.name}".`
+        : `Sucursales desactivado para "${tenant.name}".`,
+      branchesEnabled: enabled,
+    };
+  }
+
   async updateTenantPlan(tenantId: string, dto: UpdatePlanDto) {
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
     if (!tenant) {

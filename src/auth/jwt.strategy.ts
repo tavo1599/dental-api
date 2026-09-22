@@ -64,6 +64,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: user.tenant?.id ?? null,
       tenantName: user.tenant?.name ?? null,
       tenantStatus: user.tenant?.status ?? null,
+      branchesEnabled: user.tenant?.branchesEnabled ?? false,
       // Sedes a las que este usuario tiene acceso.
       branchIds: (user.branches ?? []).map((branch) => branch.id),
     };

@@ -176,6 +176,8 @@ export class AuthService {
             plan: tenant.plan,
             status: tenant.status,
             domainSlug: tenant.domainSlug,
+            // Modulo de sucursales: lo activa el super admin, no la clinica.
+            branchesEnabled: tenant.branchesEnabled,
             systemSettings: tenant.systemSettings,
             websiteConfig: tenant.websiteConfig,
           }
