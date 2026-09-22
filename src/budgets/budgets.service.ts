@@ -6,6 +6,7 @@ import { Treatment } from '../treatments/entities/treatment.entity';
 import { Budget, BudgetStatus } from './entities/budget.entity';
 import { BudgetItem } from './entities/budget-item.entity';
 import { CreateBudgetDto } from './dto/create-budget.dto';
+import { Branch } from '../branches/entities/branch.entity';
 
 @Injectable()
 export class BudgetsService {
@@ -20,8 +21,20 @@ export class BudgetsService {
     private readonly budgetItemRepository: Repository<BudgetItem>,
   ) {}
 
-  async create(createBudgetDto: CreateBudgetDto, currentUser: any) {
+  async create(
+    createBudgetDto: CreateBudgetDto,
+    currentUser: any,
+    branchId: string | null,
+  ) {
     const tenantId = currentUser.tenantId;
+
+    // El presupuesto se emite desde una sede concreta: de ahi salen luego la
+    // caja y los reportes por sucursal. En vista consolidada hay que elegir.
+    if (!branchId) {
+      throw new BadRequestException(
+        'Selecciona una sede para emitir el presupuesto.',
+      );
+    }
     
     // CORRECCIÓN: El token de seguridad guarda el ID de usuario en 'sub', no en 'id'.
     // Si el usuario es doctor, tomará su propio ID correctamente desde 'currentUser.sub'.
@@ -97,6 +110,7 @@ export class BudgetsService {
     const newBudget = this.budgetRepository.create({
       patient,
       tenant: { id: tenantId },
+      branch: { id: branchId } as Branch,
       doctor: { id: assignedDoctorId }, // <-- USAMOS EL DOCTOR RESUELTO POR LA LÓGICA
       totalAmount,
       discountAmount: discount,

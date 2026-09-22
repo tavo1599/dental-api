@@ -1,5 +1,6 @@
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Branch } from '../../branches/entities/branch.entity';
+import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum ExpenseCategory {
   SALARIES = 'salarios',
@@ -10,6 +11,7 @@ export enum ExpenseCategory {
   OTHER = 'otros',
 }
 
+@Index(['tenant', 'branch'])
 @Entity({ name: 'expenses' })
 export class Expense { // <-- Asegúrate de que 'export' esté aquí
   @PrimaryGeneratedColumn('uuid')
@@ -33,4 +35,11 @@ export class Expense { // <-- Asegúrate de que 'export' esté aquí
 
   @ManyToOne(() => Tenant)
   tenant: Tenant;
+
+  /**
+   * Sede a la que pertenece el gasto.
+   * RESTRICT: una sede con movimientos no se puede borrar, solo desactivar.
+   */
+  @ManyToOne(() => Branch, { nullable: false, onDelete: 'RESTRICT' })
+  branch: Branch;
 }

@@ -9,12 +9,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
+import { Branch } from '../branches/entities/branch.entity';
+import { BranchContextGuard } from './guards/branch-context.guard';
 
 @Module({
   imports: [
     ThrottlerModule,
     ConfigModule,
-    TypeOrmModule.forFeature([User, Tenant]),
+    TypeOrmModule.forFeature([User, Tenant, Branch]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -27,7 +29,9 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService], // <-- AÑADE ESTA LÍNEA
+  providers: [AuthService, JwtStrategy, BranchContextGuard],
+  // BranchContextGuard se exporta para que cualquier modulo pueda resolver la
+  // sede de la peticion sin registrar de nuevo el repositorio de Branch.
+  exports: [AuthService, BranchContextGuard],
 })
 export class AuthModule {}

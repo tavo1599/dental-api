@@ -31,6 +31,20 @@ export class UsersService {
       throw new BadRequestException('Ha alcanzado el límite de usuarios para su plan.');
     }
     const { fullName, email, password, role } = createUserDto;
+
+    // Una clinica tiene UN solo titular. Si hiciera falta delegar, para eso
+    // estan los admins de sucursal (rol BRANCH_ADMIN).
+    if (role === UserRole.ADMIN) {
+      const yaExiste = await this.userRepository.exists({
+        where: { tenant: { id: tenantId }, role: UserRole.ADMIN },
+      });
+      if (yaExiste) {
+        throw new BadRequestException(
+          'La clínica ya tiene un administrador. Para delegar la gestión de una sede, asigna un administrador de sucursal.',
+        );
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = this.userRepository.create({
       fullName,

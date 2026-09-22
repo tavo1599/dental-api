@@ -31,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // una foto del momento del login y puede tener hasta 30 dias de antiguedad.
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
-      relations: ['tenant'],
+      relations: ['tenant', 'branches'],
     });
 
     // 👇 EL CANDADO: Verificamos si no existe o si fue inhabilitado 👇
@@ -51,8 +51,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Lo que retornamos aquí se adjuntará al objeto 'request' como 'request.user'.
-    // role, tenantId, isSuperAdmin y tenantStatus salen de la BD (no del payload),
-    // para que un cambio de rol o una suspension surtan efecto de inmediato.
+    // role, tenantId, isSuperAdmin, tenantStatus y branchIds salen de la BD (no
+    // del payload), para que un cambio de rol, una suspension o quitarle a un
+    // doctor el acceso a una sede surtan efecto de inmediato.
     return {
       sub: user.id,
       id: user.id,
@@ -63,6 +64,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: user.tenant?.id ?? null,
       tenantName: user.tenant?.name ?? null,
       tenantStatus: user.tenant?.status ?? null,
+      // Sedes a las que este usuario tiene acceso.
+      branchIds: (user.branches ?? []).map((branch) => branch.id),
     };
   }
 }

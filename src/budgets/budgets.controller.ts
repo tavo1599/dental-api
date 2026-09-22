@@ -4,17 +4,23 @@ import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { BudgetStatus } from './entities/budget.entity';
+import { BranchContextGuard } from '../auth/guards/branch-context.guard';
+import { CurrentBranch } from '../auth/decorators/current-branch.decorator';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), BranchContextGuard)
 @Controller('budgets')
 export class BudgetsController {
   constructor(private readonly budgetsService: BudgetsService) {}
 
   @Post()
-  create(@Body() createBudgetDto: CreateBudgetDto, @Req() req: any) {
+  create(
+    @Body() createBudgetDto: CreateBudgetDto,
+    @Req() req: any,
+    @CurrentBranch() branchId: string | null,
+  ) {
     // CORRECCIÓN: Le enviamos TODO el objeto req.user al servicio 
     // para que la nueva lógica de roles sepa si es asistente o doctor.
-    return this.budgetsService.create(createBudgetDto, req.user);
+    return this.budgetsService.create(createBudgetDto, req.user, branchId);
   }
 
   // --- ENDPOINT CORREGIDO Y FINAL ---

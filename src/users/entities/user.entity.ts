@@ -1,8 +1,12 @@
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Branch } from '../../branches/entities/branch.entity';
 
 export enum UserRole {
+  /** Titular de la clinica: ve TODAS sus sedes y el consolidado. Solo uno. */
   ADMIN = 'admin',
+  /** Admin de una sucursal concreta: solo su sede. Uno por sede. */
+  BRANCH_ADMIN = 'branch_admin',
   DENTIST = 'dentist',
   ASSISTANT = 'assistant',
 }
@@ -56,6 +60,19 @@ export class User {
 
   @ManyToOne(() => Tenant, { nullable: true, eager: true })
   tenant: Tenant | null;
+
+  /**
+   * Sedes a las que tiene acceso. Es N:M porque un doctor suele rotar entre
+   * sucursales y no queremos duplicarle la cuenta.
+   * NO es eager: se carga solo donde hace falta (ver jwt.strategy).
+   */
+  @ManyToMany(() => Branch, (branch) => branch.users)
+  @JoinTable({
+    name: 'user_branches',
+    joinColumn: { name: 'userId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'branchId', referencedColumnName: 'id' },
+  })
+  branches: Branch[];
 
   // Guarda el token para resetear la contraseña
   @Column({ type: 'varchar', nullable: true })

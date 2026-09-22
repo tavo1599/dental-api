@@ -1,8 +1,10 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CashManagementService } from './cash-management.service';
+import { BranchContextGuard } from '../auth/guards/branch-context.guard';
+import { CurrentBranch } from '../auth/decorators/current-branch.decorator';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), BranchContextGuard)
 @Controller('cash-management')
 export class CashManagementController {
   constructor(private readonly cashService: CashManagementService) {}
@@ -12,8 +14,9 @@ export class CashManagementController {
 getDailySummary(
   @Query('date') dateString: string, // Recibe el string
   @Req() req,
+  @CurrentBranch() branchId: string | null,
 ) {
   // Pasa el string directamente al servicio
-  return this.cashService.getDailySummary(dateString, req.user.tenantId);
+  return this.cashService.getDailySummary(dateString, req.user.tenantId, branchId);
 }
 }

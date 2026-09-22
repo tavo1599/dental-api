@@ -1,6 +1,7 @@
 import { Patient } from '../../patients/entities/patient.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, Column, UpdateDateColumn } from 'typeorm';
+import { Branch } from '../../branches/entities/branch.entity';
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { BudgetItem } from './budget-item.entity';
 import { User } from '../../users/entities/user.entity';
 import { Payment } from '../../payments/entities/payment.entity'; // <-- Importar Payment
@@ -13,6 +14,7 @@ export enum BudgetStatus {
   COMPLETED = 'completed',
 }
 
+@Index(['tenant', 'branch'])
 @Entity({ name: 'budgets' })
 export class Budget {
   @PrimaryGeneratedColumn('uuid')
@@ -78,6 +80,13 @@ export class Budget {
 
   @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
   tenant: Tenant;
+
+  /**
+   * Sede a la que pertenece el presupuesto.
+   * RESTRICT: una sede con movimientos no se puede borrar, solo desactivar.
+   */
+  @ManyToOne(() => Branch, { nullable: false, onDelete: 'RESTRICT' })
+  branch: Branch;
 
   @ManyToOne(() => User, { nullable: true })
   doctor?: User;

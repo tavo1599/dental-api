@@ -26,7 +26,7 @@ export class OdontogramController {
   }
 
   @Patch()
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   @UseGuards(RolesGuard)
   updateOdontogram(
     @Param('patientId') patientId: string,
@@ -38,7 +38,7 @@ export class OdontogramController {
   }
 
   @Post('state')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   @UseGuards(RolesGuard)
   saveToothState(
     @Param('patientId') patientId: string,
@@ -49,7 +49,7 @@ export class OdontogramController {
   }
 
   @Delete('state/:id')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   clearToothState(
@@ -60,7 +60,7 @@ export class OdontogramController {
   }
 
   @Post('bridge')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   @UseGuards(RolesGuard)
   saveBridge(
     @Param('patientId') patientId: string,
@@ -71,7 +71,7 @@ export class OdontogramController {
   }
 
   @Delete('bridge/:bridgeId')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   removeBridge(
@@ -85,7 +85,7 @@ export class OdontogramController {
   // NUEVO ENDPOINT: COPIAR ODONTOGRAMA INICIAL A EVOLUCIÓN
   // =================================================================
   @Post('copy-initial')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   @UseGuards(RolesGuard)
   copyInitialToEvolution(
     @Param('patientId') patientId: string,

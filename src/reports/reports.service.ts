@@ -13,10 +13,21 @@ export class ReportsService {
     private readonly expenseRepository: Repository<Expense>,
   ) {}
 
-  async getFinancialReport(startDate: Date, endDate: Date, tenantId: string) {
+  /**
+   * Reporte financiero. Con branchId sale el de UNA sede; con null (admin en
+   * vista consolidada) sale el de todas las sucursales juntas, que es lo que
+   * permite comparar y ver el total de la clinica.
+   */
+  async getFinancialReport(
+    startDate: Date,
+    endDate: Date,
+    tenantId: string,
+    branchId: string | null,
+  ) {
     const payments = await this.paymentRepository.find({
       where: {
         tenant: { id: tenantId },
+        ...(branchId ? { branch: { id: branchId } } : {}),
         paymentDate: Between(startDate, endDate),
       },
       relations: ['budget', 'budget.patient'], // Incluimos info del paciente
@@ -26,6 +37,7 @@ export class ReportsService {
     const expenses = await this.expenseRepository.find({
       where: {
         tenant: { id: tenantId },
+        ...(branchId ? { branch: { id: branchId } } : {}),
         date: Between(startDate, endDate),
       },
       order: { date: 'ASC' },

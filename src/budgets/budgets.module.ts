@@ -6,6 +6,7 @@ import { Budget } from './entities/budget.entity';
 import { BudgetItem } from './entities/budget-item.entity';
 import { Treatment } from '../treatments/entities/treatment.entity';
 import { User } from '../users/entities/user.entity';
+import { Branch } from '../branches/entities/branch.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { PatientsModule } from '../patients/patients.module'; // <-- 1. Importa el Módulo de Pacientes
 
@@ -16,7 +17,8 @@ import { PatientsModule } from '../patients/patients.module'; // <-- 1. Importa 
       BudgetItem, 
       Treatment, 
       User,   
-      Tenant
+      Tenant,
+      Branch
     ]),
     PatientsModule // <-- 2. Añádelo aquí
   ],

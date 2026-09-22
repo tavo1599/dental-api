@@ -1,7 +1,8 @@
 import { Patient } from '../../patients/entities/patient.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 import { User } from '../../users/entities/user.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum AppointmentStatus {
   SCHEDULED = 'scheduled',
@@ -11,6 +12,7 @@ export enum AppointmentStatus {
   NO_SHOW = 'no_show',
 }
 
+@Index(['tenant', 'branch'])
 @Entity({ name: 'appointments' })
 export class Appointment {
   @PrimaryGeneratedColumn('uuid')
@@ -43,4 +45,11 @@ export class Appointment {
   // Relación: La cita pertenece a UNA clínica
   @ManyToOne(() => Tenant)
   tenant: Tenant;
+
+  /**
+   * Sede a la que pertenece la cita.
+   * RESTRICT: una sede con movimientos no se puede borrar, solo desactivar.
+   */
+  @ManyToOne(() => Branch, { nullable: false, onDelete: 'RESTRICT' })
+  branch: Branch;
 }

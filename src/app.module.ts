@@ -58,6 +58,16 @@ import { OdontopediatricHistory } from './patients/entities/odontopediatric-hist
 import { ToothState } from './odontogram/entities/tooth-state.entity';
 import { OrthodonticHistory } from './patients/entities/orthodontic-history.entity';
 import { DentalBridge } from './odontogram/entities/dental-bridge.entity';
+import { Branch } from './branches/entities/branch.entity';
+import { BranchesModule } from './branches/branches.module';
+import { Product } from './inventory/entities/product.entity';
+import { ProductStock } from './inventory/entities/product-stock.entity';
+import { StockMovement } from './inventory/entities/stock-movement.entity';
+import { ProductLot } from './inventory/entities/product-lot.entity';
+import { InventoryModule } from './inventory/inventory.module';
+import { Sale } from './sales/entities/sale.entity';
+import { SaleItem } from './sales/entities/sale-item.entity';
+import { SalesModule } from './sales/sales.module';
 
 
 @Module({
@@ -80,13 +90,23 @@ import { DentalBridge } from './odontogram/entities/dental-bridge.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge],
-        synchronize: false, // ¡Solo para desarrollo!
+        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge, Branch, Product, ProductStock, StockMovement, ProductLot, Sale, SaleItem],
+
+        // El esquema NUNCA se toca solo: todo cambio pasa por una migracion
+        // revisable y reversible (ver src/migrations y src/data-source.ts).
+        synchronize: false,
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        // Las migraciones se ejecutan a mano con `npm run migration:run`,
+        // no al arrancar, para controlar cuando se aplican en produccion.
+        migrationsRun: false,
       }),
     }),
 
     // Importa todos los módulos
     TenantsModule,
+    BranchesModule,
+    InventoryModule,
+    SalesModule,
     UsersModule,
     AuthModule,
     PatientsModule,

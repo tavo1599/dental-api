@@ -49,7 +49,7 @@ export class DocumentsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.ASSISTANT)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.ASSISTANT)
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @Req() req) {

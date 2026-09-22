@@ -14,7 +14,7 @@ export class ClinicalHistoryController {
   // --- NUEVA RUTA PARA EL ASISTENTE (Búsqueda Global) ---
   // URL: /clinical-history/reminders
   @Get('clinical-history/reminders')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.ASSISTANT)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST, UserRole.ASSISTANT)
   findAllGlobal(@Req() req, @Query('date') date?: string) {
     // Busca recordatorios en toda la clínica (tenant)
     return this.clinicalHistoryService.findAllReminders(req.user.tenantId, date);
@@ -24,7 +24,7 @@ export class ClinicalHistoryController {
 
   // URL: /patients/:patientId/history (POST)
   @Post('patients/:patientId/history')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   create(
     @Param('patientId') patientId: string,
     @Body() createDto: CreateClinicalHistoryEntryDto,
@@ -44,7 +44,7 @@ export class ClinicalHistoryController {
 
   // URL: /patients/:patientId/history/:entryId (PATCH)
   @Patch('patients/:patientId/history/:entryId')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   update(
     @Param('entryId') entryId: string,
     @Body() updateDto: Partial<CreateClinicalHistoryEntryDto>,
@@ -55,7 +55,7 @@ export class ClinicalHistoryController {
 
   // URL: /patients/:patientId/history/:entryId (DELETE)
   @Delete('patients/:patientId/history/:entryId')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST)
   remove(@Param('entryId') entryId: string, @Req() req) {
     return this.clinicalHistoryService.remove(entryId, req.user.tenantId);
   }

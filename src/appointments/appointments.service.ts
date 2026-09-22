@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository, LessThan, MoreThan, Not, In } from 'typeorm'; // <-- NUEVO: Agregado 'In'
 import { Appointment, AppointmentStatus } from './entities/appointment.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { Branch } from '../branches/entities/branch.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { User } from '../users/entities/user.entity';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
@@ -20,7 +21,18 @@ export class AppointmentsService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async create(createDto: CreateAppointmentDto, tenantId: string) {
+  async create(
+    createDto: CreateAppointmentDto,
+    tenantId: string,
+    branchId: string | null,
+  ) {
+    // Una cita SIEMPRE ocurre en una sede concreta. Si el admin esta viendo
+    // "todas las sedes" no hay forma de saber cual, asi que se le pide elegir.
+    if (!branchId) {
+      throw new BadRequestException(
+        'Selecciona una sede para poder agendar la cita.',
+      );
+    }
     const { patientId, doctorId, notes } = createDto;
     
     // Convertir fechas
@@ -30,6 +42,8 @@ export class AppointmentsService {
     // --- VALIDACIÓN DE CRUCE DE HORARIOS (CORREGIDO) ---
     const overlappingAppointment = await this.appointmentRepository.findOne({
       where: {
+        // A proposito SIN filtrar por sede: un doctor no puede estar en dos
+        // sucursales a la vez, asi que el cruce se busca en toda la clinica.
         doctor: { id: doctorId }, 
         tenant: { id: tenantId }, 
         // AHORA IGNORA TANTO CANCELADAS COMO NO PRESENTADOS
@@ -57,6 +71,7 @@ export class AppointmentsService {
       patient: { id: patientId },
       doctor: { id: doctorId },
       tenant: { id: tenantId },
+      branch: { id: branchId } as Branch,
     });
 
     const savedAppointment = await this.appointmentRepository.save(newAppointment);
@@ -71,6 +86,7 @@ export class AppointmentsService {
 
 async findAll(
   tenantId: string,
+  branchId: string | null,
   filters?: {
     doctorId?: string;
     status?: AppointmentStatus[] | 'all';
@@ -78,7 +94,12 @@ async findAll(
     endDate?: string;
   },
 ) {
+  // La agenda SI se separa por sede. Con branchId en null (admin viendo
+  // "todas"), no se filtra y sale la agenda consolidada.
   const where: any = { tenant: { id: tenantId } };
+  if (branchId) {
+    where.branch = { id: branchId };
+  }
 
   if (filters?.doctorId) {
     where.doctor = { id: filters.doctorId };
@@ -112,6 +133,11 @@ if (filters?.startDate && filters?.endDate) {
   });
 }
   
+  /**
+   * Historial de citas del paciente. NO se filtra por sede a proposito: si el
+   * paciente se atendio en otra sucursal, el doctor necesita verlo igual, como
+   * pasa con la historia clinica.
+   */
   async findAllForPatient(patientId: string, tenantId: string) {
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
     if (!patient) throw new NotFoundException(`Patient with ID "${patientId}" not found in this tenant.`);
@@ -126,7 +152,7 @@ if (filters?.startDate && filters?.endDate) {
     });
   }
 
-  async findNextDayPending(tenantId: string) {
+  async findNextDayPending(tenantId: string, branchId: string | null) {
     const tomorrowStart = new Date();
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
     tomorrowStart.setHours(0, 0, 0, 0);
@@ -137,6 +163,8 @@ if (filters?.startDate && filters?.endDate) {
     return this.appointmentRepository.find({
       where: {
         tenant: { id: tenantId },
+        // Cada sede llama a sus propios pacientes.
+        ...(branchId ? { branch: { id: branchId } } : {}),
         status: AppointmentStatus.SCHEDULED,
         startTime: Between(tomorrowStart, tomorrowEnd),
       },
@@ -149,10 +177,12 @@ if (filters?.startDate && filters?.endDate) {
     appointmentId: string,
     updateDto: UpdateAppointmentStatusDto,
     tenantId: string,
+    branchId: string | null,
   ) {
     const appointment = await this.appointmentRepository.findOneBy({
       id: appointmentId,
       tenant: { id: tenantId },
+      ...(branchId ? { branch: { id: branchId } } : {}),
     });
     if (!appointment) throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
     appointment.status = updateDto.status;
@@ -163,9 +193,14 @@ if (filters?.startDate && filters?.endDate) {
     appointmentId: string,
     dto: UpdateAppointmentTimeDto,
     tenantId: string,
+    branchId: string | null,
   ) {
     const appointment = await this.appointmentRepository.findOne({
-      where: { id: appointmentId, tenant: { id: tenantId } },
+      where: {
+        id: appointmentId,
+        tenant: { id: tenantId },
+        ...(branchId ? { branch: { id: branchId } } : {}),
+      },
       relations: ['doctor'] 
     });
     if (!appointment) throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
@@ -204,10 +239,11 @@ if (filters?.startDate && filters?.endDate) {
     return this.appointmentRepository.save(appointment);
   }
 
-  async remove(id: string, tenantId: string) {
+  async remove(id: string, tenantId: string, branchId: string | null) {
     const appointment = await this.appointmentRepository.findOneBy({ 
       id, 
-      tenant: { id: tenantId } 
+      tenant: { id: tenantId },
+      ...(branchId ? { branch: { id: branchId } } : {}),
     });
     
     if (!appointment) {

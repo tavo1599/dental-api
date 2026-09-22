@@ -14,7 +14,15 @@ export class CashManagementService {
   ) {}
 
   // Ahora la función recibe el string 'YYYY-MM-DD' directamente
-  async getDailySummary(dateString: string, tenantId: string) {
+  /**
+   * Cierre de caja del dia. Con branchId se ve la caja de UNA sede; con null
+   * (admin en vista consolidada) sale el total de toda la clinica.
+   */
+  async getDailySummary(
+    dateString: string,
+    tenantId: string,
+    branchId: string | null,
+  ) {
     // Creamos las fechas de inicio y fin del día en la zona horaria de Perú (UTC-5)
     // Esto asegura que la búsqueda en la base de datos sea exacta.
     const startOfDay = new Date(`${dateString}T00:00:00.000-05:00`);
@@ -23,6 +31,7 @@ export class CashManagementService {
     const payments = await this.paymentRepository.find({
       where: {
         tenant: { id: tenantId },
+        ...(branchId ? { branch: { id: branchId } } : {}),
         paymentDate: Between(startOfDay, endOfDay),
       },
       relations: ['budget', 'budget.patient'],
@@ -31,6 +40,7 @@ export class CashManagementService {
     const expenses = await this.expenseRepository.find({
       where: {
         tenant: { id: tenantId },
+        ...(branchId ? { branch: { id: branchId } } : {}),
         date: Between(startOfDay, endOfDay),
       },
     });

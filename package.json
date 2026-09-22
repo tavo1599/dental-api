@@ -6,7 +6,13 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node src/main.ts",
     "start:dev": "ts-node-dev --respawn src/main.ts",
-    "build": "nest build"
+    "build": "nest build",
+    "typeorm": "ts-node ./node_modules/typeorm/cli.js",
+    "migration:generate": "npm run typeorm -- migration:generate -d src/data-source.ts",
+    "migration:create": "npm run typeorm -- migration:create",
+    "migration:run": "npm run typeorm -- migration:run -d src/data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d src/data-source.ts",
+    "migration:show": "npm run typeorm -- migration:show -d src/data-source.ts"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +43,7 @@
     "class-validator": "^0.14.2",
     "compression": "^1.8.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^18.0.2",
     "helmet": "^8.1.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.16.3",

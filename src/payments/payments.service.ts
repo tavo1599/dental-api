@@ -21,7 +21,13 @@ export class PaymentsService {
       const budgetRepo = manager.getRepository(Budget);
       const paymentRepo = manager.getRepository(Payment);
 
-      const budget = await budgetRepo.findOneBy({ id: budgetId, tenant: { id: tenantId } });
+      // Se carga la sede del presupuesto: el pago SIEMPRE se registra en la
+      // misma sede que lo emitio, nunca en la que tenga abierta el usuario.
+      // Asi la caja de cada sucursal no puede descuadrarse.
+      const budget = await budgetRepo.findOne({
+        where: { id: budgetId, tenant: { id: tenantId } },
+        relations: ['branch'],
+      });
       if (!budget) throw new NotFoundException(`Budget with ID "${budgetId}" not found.`);
 
       // --- CORRECCIÓN LÓGICA DE SALDO Y ESTADO ---
@@ -43,6 +49,7 @@ export class PaymentsService {
         budget: { id: budgetId },
         registeredBy: { id: userId },
         tenant: { id: tenantId },
+        branch: { id: budget.branch.id },
       });
       await paymentRepo.save(newPayment);
 
