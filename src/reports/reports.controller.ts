@@ -1,21 +1,27 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../users/entities/user.entity';
 import { ReportsService } from './reports.service';
 import { FinancialReportDto } from './dto/financial-report.dto';
 import { BranchContextGuard } from '../auth/guards/branch-context.guard';
 import { CurrentBranch } from '../auth/decorators/current-branch.decorator';
+import { SettingsGuard } from '../auth/guards/settings.guard';
+import { RequiresSetting } from '../auth/decorators/requires-setting.decorator';
 
 @UseGuards(AuthGuard('jwt'), BranchContextGuard)
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  /**
+   * Antes llevaba @Roles(ADMIN, BRANCH_ADMIN) fijo, y eso ignoraba el ajuste
+   * "los doctores pueden ver reportes": aunque la clinica lo activara, la
+   * guardia los seguia bloqueando. Ahora manda la configuracion. El valor
+   * por defecto es false para doctores y asistentes, asi que quien no lo
+   * haya tocado sigue igual que hasta hoy.
+   */
   @Get('financial')
-  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN) // Solo los admins pueden ver reportes financieros
-  @UseGuards(RolesGuard)
+  @RequiresSetting('CanSeeReports')
+  @UseGuards(SettingsGuard)
   getFinancialReport(
     @Query() query: FinancialReportDto,
     @Req() req,

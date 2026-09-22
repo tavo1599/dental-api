@@ -65,6 +65,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantName: user.tenant?.name ?? null,
       tenantStatus: user.tenant?.status ?? null,
       branchesEnabled: user.tenant?.branchesEnabled ?? false,
+      // Permisos que cada clinica configura por su cuenta. Viajan aqui porque
+      // el tenant ya viene cargado: asi SettingsGuard los comprueba sin
+      // sumar una consulta por peticion.
+      systemSettings: user.tenant?.systemSettings ?? null,
       // Sedes a las que este usuario tiene acceso.
       branchIds: (user.branches ?? []).map((branch) => branch.id),
     };

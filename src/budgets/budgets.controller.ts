@@ -6,13 +6,16 @@ import { UserRole } from '../users/entities/user.entity';
 import { BudgetStatus } from './entities/budget.entity';
 import { BranchContextGuard } from '../auth/guards/branch-context.guard';
 import { CurrentBranch } from '../auth/decorators/current-branch.decorator';
+import { SettingsGuard } from '../auth/guards/settings.guard';
+import { RequiresSetting } from '../auth/decorators/requires-setting.decorator';
 
-@UseGuards(AuthGuard('jwt'), BranchContextGuard)
+@UseGuards(AuthGuard('jwt'), BranchContextGuard, SettingsGuard)
 @Controller('budgets')
 export class BudgetsController {
   constructor(private readonly budgetsService: BudgetsService) {}
 
   @Post()
+  @RequiresSetting('CanManageBudgets')
   create(
     @Body() createBudgetDto: CreateBudgetDto,
     @Req() req: any,
@@ -47,18 +50,21 @@ export class BudgetsController {
   }
 
   @Patch(':id/approve')
+  @RequiresSetting('CanManageBudgets')
   @HttpCode(HttpStatus.OK)
   approveBudget(@Param('id') id: string, @Req() req: any) {
     return this.budgetsService.updateStatus(id, req.user.tenantId, BudgetStatus.APPROVED);
   }
 
   @Patch(':id/reject')
+  @RequiresSetting('CanManageBudgets')
   @HttpCode(HttpStatus.OK)
   rejectBudget(@Param('id') id: string, @Req() req: any) {
     return this.budgetsService.updateStatus(id, req.user.tenantId, BudgetStatus.REJECTED);
   }
 
   @Patch(':id/discount')
+  @RequiresSetting('CanManageBudgets')
   @HttpCode(HttpStatus.OK)
   setDiscount(@Param('id') id: string, @Body('discountAmount') discountAmount: number, @Req() req: any) {
     // Permite establecer o actualizar un descuento (monto fijo) para un presupuesto
@@ -67,6 +73,7 @@ export class BudgetsController {
   }
 
   @Delete(':id')
+  @RequiresSetting('CanManageBudgets')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @Req() req: any) {
     // Elimina un presupuesto asegurando que pertenece al tenant del usuario
