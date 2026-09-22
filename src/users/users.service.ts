@@ -126,9 +126,29 @@ export class UsersService {
       throw new NotFoundException(`User with ID "${userId}" not found`);
     }
     
+    // La titularidad NO se cambia editando un usuario. Sin esto, un admin podia
+    // editar a cualquier doctor y ponerle role='admin', saltandose la
+    // validacion de "un solo admin por clinica" que si cubre la creacion.
+    if (updateUserDto.role && updateUserDto.role !== user.role) {
+      if (updateUserDto.role === UserRole.ADMIN) {
+        throw new BadRequestException(
+          'La titularidad de la clínica no se cambia editando un usuario. Usa la transferencia de administrador.',
+        );
+      }
+      if (user.role === UserRole.ADMIN) {
+        throw new BadRequestException(
+          'No se puede quitar el rol al titular de la clínica: se quedaría sin administrador. Transfiere la titularidad a otro usuario primero.',
+        );
+      }
+      if (updateUserDto.role === UserRole.BRANCH_ADMIN) {
+        throw new BadRequestException(
+          'El administrador de sucursal se asigna desde la sede correspondiente, no editando el usuario.',
+        );
+      }
+    }
+
     // Si el DTO trae 'password' y quieres permitir actualizarlo aquí, deberías hashearlo.
     // Si no, la lógica de 'changePassword' separada está bien.
-    // Como pediste no cambiar tu código base, dejamos el merge simple:
     const updatedUser = this.userRepository.merge(user, updateUserDto);
     return this.userRepository.save(updatedUser);
   }

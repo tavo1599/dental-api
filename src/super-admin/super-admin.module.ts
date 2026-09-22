@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { UsersModule } from '../users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { SuperAdminController } from './super-admin.controller';
@@ -13,6 +14,7 @@ import { ConsentTemplate } from '../consent-templates/entities/consent-template.
 @Module({
   // 3. Añade 'Patient' y 'Payment' a la lista de entidades
   imports: [
+    UsersModule,
     TypeOrmModule.forFeature([Tenant, User, Announcement, Patient, Payment, ConsentTemplate]), 
     AuthModule
   ],

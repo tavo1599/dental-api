@@ -64,6 +64,7 @@ import { Product } from './inventory/entities/product.entity';
 import { ProductStock } from './inventory/entities/product-stock.entity';
 import { StockMovement } from './inventory/entities/stock-movement.entity';
 import { ProductLot } from './inventory/entities/product-lot.entity';
+import { AdminTransfer } from './users/entities/admin-transfer.entity';
 import { InventoryModule } from './inventory/inventory.module';
 import { Sale } from './sales/entities/sale.entity';
 import { SaleItem } from './sales/entities/sale-item.entity';
@@ -90,7 +91,7 @@ import { SalesModule } from './sales/sales.module';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge, Branch, Product, ProductStock, StockMovement, ProductLot, Sale, SaleItem],
+        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge, Branch, Product, ProductStock, StockMovement, ProductLot, Sale, SaleItem, AdminTransfer],
 
         // El esquema NUNCA se toca solo: todo cambio pasa por una migracion
         // revisable y reversible (ver src/migrations y src/data-source.ts).

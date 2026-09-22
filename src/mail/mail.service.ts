@@ -19,6 +19,100 @@ export class MailService implements OnModuleInit {
     }
   }
 
+  /** Datos de envio comunes, para no repetirlos en cada correo. */
+  private fromAddress(): string {
+    const configurado =
+      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      'SonriAndes <notificaciones@sonriandes.com>';
+    return configurado.replace(/['"]/g, '').trim();
+  }
+
+  /**
+   * Codigo para transferir la titularidad de la clinica. Va al correo del
+   * titular ACTUAL: quien controle ese correo es quien autoriza el cambio.
+   */
+  async sendAdminTransferCode(currentAdmin: User, target: User, code: string) {
+    if (!this.resend) {
+      this.logger.error('Resend no está inicializado.');
+      return;
+    }
+    try {
+      await this.resend.emails.send({
+        from: this.fromAddress(),
+        to: [currentAdmin.email],
+        replyTo: 'dentalsoft9@gmail.com',
+        subject: '🔐 Código para transferir la administración - SonriAndes',
+        html: `
+          <div style="background-color:#f3f4f6;padding:40px 10px;font-family:sans-serif;">
+            <table align="center" width="100%" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;">
+              <tr><td style="padding:32px;">
+                <h2 style="margin:0 0 8px;color:#111827;">Transferencia de administración</h2>
+                <p style="color:#4b5563;line-height:1.6;">
+                  Has solicitado entregar la administración de tu clínica a
+                  <strong>${target.fullName}</strong>. Si lo confirmas, esa persona
+                  pasará a ser el titular y tú quedarás como dentista.
+                </p>
+                <p style="color:#4b5563;">Tu código de verificación es:</p>
+                <div style="text-align:center;margin:24px 0;">
+                  <span style="display:inline-block;font-size:34px;letter-spacing:10px;font-weight:bold;color:#0f172a;background:#f1f5f9;padding:16px 24px;border-radius:12px;">${code}</span>
+                </div>
+                <p style="color:#6b7280;font-size:13px;line-height:1.6;">
+                  Caduca en 15 minutos.
+                  <strong>Si no has pedido esto, ignora el correo y cambia tu contraseña:</strong>
+                  alguien con acceso a tu cuenta está intentando entregar tu clínica.
+                </p>
+              </td></tr>
+            </table>
+          </div>`,
+      });
+    } catch (error) {
+      this.logger.error('Error enviando el código de transferencia', error);
+    }
+  }
+
+  /** Aviso a ambas partes una vez hecha la transferencia. */
+  async sendAdminTransferDone(
+    previousAdmin: User | null,
+    newAdmin: User,
+    forced: boolean,
+  ) {
+    if (!this.resend) return;
+
+    const destinatarios = [newAdmin.email];
+    if (previousAdmin?.email) destinatarios.push(previousAdmin.email);
+
+    const motivo = forced
+      ? 'La transferencia fue realizada por el equipo de soporte a petición de la clínica.'
+      : 'La transferencia fue confirmada por el titular anterior.';
+
+    try {
+      await this.resend.emails.send({
+        from: this.fromAddress(),
+        to: destinatarios,
+        replyTo: 'dentalsoft9@gmail.com',
+        subject: '✅ Cambio de administrador - SonriAndes',
+        html: `
+          <div style="background-color:#f3f4f6;padding:40px 10px;font-family:sans-serif;">
+            <table align="center" width="100%" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;">
+              <tr><td style="padding:32px;">
+                <h2 style="margin:0 0 8px;color:#111827;">Cambio de administrador</h2>
+                <p style="color:#4b5563;line-height:1.6;">
+                  <strong>${newAdmin.fullName}</strong> es ahora el administrador de la clínica.
+                  ${previousAdmin ? `<strong>${previousAdmin.fullName}</strong> pasa a ser dentista y conserva su agenda y sus pacientes.` : ''}
+                </p>
+                <p style="color:#6b7280;font-size:13px;">${motivo}</p>
+                <p style="color:#6b7280;font-size:13px;">
+                  Si no reconoces este cambio, contacta con soporte de inmediato.
+                </p>
+              </td></tr>
+            </table>
+          </div>`,
+      });
+    } catch (error) {
+      this.logger.error('Error enviando el aviso de transferencia', error);
+    }
+  }
+
   async sendPasswordResetEmail(user: User, token: string) {
     if (!this.resend) {
       this.logger.error('Resend no está inicializado.');

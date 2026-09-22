@@ -13,6 +13,7 @@ import { ConsentTemplate } from '../consent-templates/entities/consent-template.
 import { CreateConsentTemplateDto } from '../consent-templates/dto/create-consent-template.dto';
 import { UpdateConsentTemplateDto } from '../consent-templates/dto/update-consent-template.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
+import { AdminTransferService } from '../users/admin-transfer.service';
 
 @Injectable()
 export class SuperAdminService {
@@ -30,7 +31,7 @@ export class SuperAdminService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(ConsentTemplate)
     private readonly consentTemplateRepository: Repository<ConsentTemplate>,
-    
+    private readonly adminTransferService: AdminTransferService,
   ) {}
 
 async findAllTenants() {
@@ -165,6 +166,16 @@ async impersonate(userId: string) {
    * simplemente deja de ver la interfaz y vuelve a operar sobre su sede
    * principal.
    */
+  /**
+   * Fuerza el cambio de titular sin codigo. Es la via de respaldo para cuando
+   * el titular ya no trabaja en la clinica o perdio el acceso a su correo y
+   * nadie puede recibir el codigo de verificacion. Queda registrada como
+   * forzada en admin_transfers.
+   */
+  async transferAdmin(tenantId: string, toUserId: string) {
+    return this.adminTransferService.forceBySuperAdmin(tenantId, toUserId);
+  }
+
   async setBranchesEnabled(tenantId: string, enabled: boolean) {
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
     if (!tenant) {

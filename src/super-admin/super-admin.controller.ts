@@ -82,6 +82,16 @@ export class SuperAdminController {
     return this.superAdminService.updateTenantPlan(id, dto);
   }
 
+  /**
+   * Cambia el titular de una clinica sin pasar por el codigo. Solo para
+   * cuando la clinica no puede hacerlo sola (titular fuera o sin acceso a su
+   * correo).
+   */
+  @Patch('tenants/:id/transfer-admin')
+  transferAdmin(@Param('id') id: string, @Body('toUserId') toUserId: string) {
+    return this.superAdminService.transferAdmin(id, toUserId);
+  }
+
   /** Activa o desactiva el modulo de sucursales para una clinica. */
   @Patch('tenants/:id/branches-enabled')
   setBranchesEnabled(

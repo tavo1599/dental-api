@@ -2,6 +2,11 @@ import { Body, Controller, Get, Param, Patch, Post, Delete, Req, UseGuards, UseI
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
+import { AdminTransferService } from './admin-transfer.service';
+import {
+  ConfirmAdminTransferDto,
+  RequestAdminTransferDto,
+} from './dto/admin-transfer.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -12,7 +17,9 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService,
+    private readonly adminTransferService: AdminTransferService,
+  ) {}
 
   // --- 1. RUTAS ESPECÍFICAS (Deben ir primero para no chocar con :id) ---
 
@@ -83,5 +90,52 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
+  }
+
+  // =======================================================================
+  // TRANSFERENCIA DE TITULARIDAD
+  //
+  // Cambiar quien administra la clinica no es una edicion mas: es entregar el
+  // control de la cuenta. Por eso va por su propio flujo con codigo al correo
+  // del titular actual, y no editando el rol del usuario.
+  // =======================================================================
+
+  /** Transferencia pendiente, si la hay. */
+  @Get('admin-transfer/pending')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  pendingTransfer(@Req() req) {
+    return this.adminTransferService.findPending(req.user.tenantId);
+  }
+
+  /** Paso 1: pedirla. Envia un codigo al correo del titular actual. */
+  @Post('admin-transfer/request')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  requestTransfer(@Body() dto: RequestAdminTransferDto, @Req() req) {
+    return this.adminTransferService.request(
+      req.user.id ?? req.user.sub,
+      dto.toUserId,
+      req.user.tenantId,
+    );
+  }
+
+  /** Paso 2: confirmarla con el codigo recibido. */
+  @Post('admin-transfer/confirm')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  confirmTransfer(@Body() dto: ConfirmAdminTransferDto, @Req() req) {
+    return this.adminTransferService.confirm(
+      req.user.id ?? req.user.sub,
+      dto.code,
+      req.user.tenantId,
+    );
+  }
+
+  @Delete('admin-transfer')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  cancelTransfer(@Req() req) {
+    return this.adminTransferService.cancel(req.user.tenantId);
   }
 }
