@@ -21,6 +21,53 @@ export class UsersController {
     private readonly adminTransferService: AdminTransferService,
   ) {}
 
+  // =======================================================================
+  // TRANSFERENCIA DE TITULARIDAD
+  //
+  // Cambiar quien administra la clinica no es una edicion mas: es entregar el
+  // control de la cuenta. Por eso va por su propio flujo con codigo al correo
+  // del titular actual, y no editando el rol del usuario.
+  // =======================================================================
+
+  /** Transferencia pendiente, si la hay. */
+  @Get('admin-transfer/pending')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  pendingTransfer(@Req() req) {
+    return this.adminTransferService.findPending(req.user.tenantId);
+  }
+
+  /** Paso 1: pedirla. Envia un codigo al correo del titular actual. */
+  @Post('admin-transfer/request')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  requestTransfer(@Body() dto: RequestAdminTransferDto, @Req() req) {
+    return this.adminTransferService.request(
+      req.user.id ?? req.user.sub,
+      dto.toUserId,
+      req.user.tenantId,
+    );
+  }
+
+  /** Paso 2: confirmarla con el codigo recibido. */
+  @Post('admin-transfer/confirm')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  confirmTransfer(@Body() dto: ConfirmAdminTransferDto, @Req() req) {
+    return this.adminTransferService.confirm(
+      req.user.id ?? req.user.sub,
+      dto.code,
+      req.user.tenantId,
+    );
+  }
+
+  @Delete('admin-transfer')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  cancelTransfer(@Req() req) {
+    return this.adminTransferService.cancel(req.user.tenantId);
+  }
+
   // --- 1. RUTAS ESPECÍFICAS (Deben ir primero para no chocar con :id) ---
 
   @Patch('change-password')
@@ -92,50 +139,4 @@ export class UsersController {
     return this.usersService.remove(id);
   }
 
-  // =======================================================================
-  // TRANSFERENCIA DE TITULARIDAD
-  //
-  // Cambiar quien administra la clinica no es una edicion mas: es entregar el
-  // control de la cuenta. Por eso va por su propio flujo con codigo al correo
-  // del titular actual, y no editando el rol del usuario.
-  // =======================================================================
-
-  /** Transferencia pendiente, si la hay. */
-  @Get('admin-transfer/pending')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  pendingTransfer(@Req() req) {
-    return this.adminTransferService.findPending(req.user.tenantId);
-  }
-
-  /** Paso 1: pedirla. Envia un codigo al correo del titular actual. */
-  @Post('admin-transfer/request')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  requestTransfer(@Body() dto: RequestAdminTransferDto, @Req() req) {
-    return this.adminTransferService.request(
-      req.user.id ?? req.user.sub,
-      dto.toUserId,
-      req.user.tenantId,
-    );
-  }
-
-  /** Paso 2: confirmarla con el codigo recibido. */
-  @Post('admin-transfer/confirm')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  confirmTransfer(@Body() dto: ConfirmAdminTransferDto, @Req() req) {
-    return this.adminTransferService.confirm(
-      req.user.id ?? req.user.sub,
-      dto.code,
-      req.user.tenantId,
-    );
-  }
-
-  @Delete('admin-transfer')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(RolesGuard)
-  cancelTransfer(@Req() req) {
-    return this.adminTransferService.cancel(req.user.tenantId);
-  }
 }
