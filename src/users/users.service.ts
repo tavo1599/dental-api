@@ -33,7 +33,7 @@ export class UsersService {
     if (tenant.users.length >= tenant.maxUsers) {
       throw new BadRequestException('Ha alcanzado el límite de usuarios para su plan.');
     }
-    const { fullName, email, password, role } = createUserDto;
+    const { fullName, email, password, role, branchIds } = createUserDto;
 
     // Una clinica tiene UN solo titular. Si hiciera falta delegar, para eso
     // estan los admins de sucursal (rol BRANCH_ADMIN).
@@ -58,37 +58,105 @@ export class UsersService {
     });
     const savedUser = await this.userRepository.save(newUser);
 
-    // Todo usuario nace asignado a la sede principal de su clinica. Sin esto
-    // se quedaria sin ninguna sede y no podria ni ver la agenda: el contexto
-    // de sede no sabria sobre cual trabaja.
-    const mainBranch = await this.branchRepository.findOne({
-      where: { tenant: { id: tenantId }, isMain: true },
-    });
-    if (mainBranch) {
-      await this.userRepository
-        .createQueryBuilder()
-        .relation(User, 'branches')
-        .of(savedUser.id)
-        .add(mainBranch.id)
-        .catch((error: any) => {
-          // 23505 = ya estaba asignado, que es el resultado buscado igual.
-          const code = error?.driverError?.code ?? error?.code;
-          if (code !== '23505') throw error;
-        });
-    }
+    // Todo usuario nace asignado a alguna sede. Sin esto se quedaria sin
+    // ninguna y no podria ni ver la agenda: el contexto de sede no sabria
+    // sobre cual trabaja.
+    await this.setBranches(savedUser.id, branchIds, tenantId);
 
     delete savedUser.password_hash;
     return savedUser;
   }
 
+  /**
+   * Deja al usuario trabajando EXACTAMENTE en las sedes que se le indiquen.
+   *
+   * Si no se indica ninguna (o la clinica no usa sucursales) acaba en la sede
+   * principal. Nunca se queda sin sede: un usuario sin sede no puede abrir la
+   * agenda ni registrar nada, porque el contexto de sede no sabria sobre cual
+   * esta trabajando.
+   */
+  private async setBranches(
+    userId: string,
+    branchIds: string[] | undefined,
+    tenantId: string,
+  ) {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: { id: true, branchesEnabled: true },
+    });
+
+    // Con el modulo apagado la clinica no elige sedes: todo va a la principal.
+    const pedidas =
+      tenant?.branchesEnabled === true && branchIds?.length ? branchIds : [];
+
+    let destino: string[];
+
+    if (pedidas.length) {
+      // Solo sedes activas de ESTA clinica: sin este filtro, conociendo un id
+      // se podria colar a un usuario en la sede de otra clinica.
+      const validas = await this.branchRepository.find({
+        where: { id: In(pedidas), tenant: { id: tenantId }, isActive: true },
+        select: { id: true },
+      });
+      if (validas.length !== pedidas.length) {
+        throw new BadRequestException(
+          'Alguna de las sedes seleccionadas no existe, está inactiva o no pertenece a esta clínica.',
+        );
+      }
+      destino = validas.map((b) => b.id);
+    } else {
+      const principal = await this.branchRepository.findOne({
+        where: { tenant: { id: tenantId }, isMain: true },
+        select: { id: true },
+      });
+      if (!principal) return; // clinica sin sedes: no hay nada que asignar
+      destino = [principal.id];
+    }
+
+    const actuales = await this.branchRepository
+      .createQueryBuilder('b')
+      .innerJoin('b.users', 'u', 'u.id = :userId', { userId })
+      .select('b.id', 'id')
+      .getRawMany<{ id: string }>();
+    const actualesIds = actuales.map((b) => b.id);
+
+    const aAgregar = destino.filter((id) => !actualesIds.includes(id));
+    const aQuitar = actualesIds.filter((id) => !destino.includes(id));
+
+    if (!aAgregar.length && !aQuitar.length) return;
+
+    // API de relaciones en vez de save(): manipular la tabla intermedia
+    // guardando la entidad no siempre persiste el cambio.
+    await this.userRepository
+      .createQueryBuilder()
+      .relation(User, 'branches')
+      .of(userId)
+      .addAndRemove(aAgregar, aQuitar)
+      .catch((error: any) => {
+        // 23505 = ya estaba asignado, que es el resultado buscado igual.
+        const code = error?.driverError?.code ?? error?.code;
+        if (code !== '23505') throw error;
+      });
+  }
+
   async findAll(tenantId: string): Promise<User[]> {
     return this.userRepository.find({
-      where: { 
+      where: {
         tenant: { id: tenantId },
         isSuperAdmin: false,
       },
       // 👇 AÑADIDO 'isActive' PARA EL FRONTEND 👇
-      select: ['id', 'fullName', 'email', 'role', 'isActive'],
+      // Las sedes viajan para poder mostrarlas en la lista y precargarlas al
+      // editar, sin tener que pedir cada usuario por separado.
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        branches: { id: true, name: true, isMain: true },
+      },
+      relations: { branches: true },
     });
   }
 
@@ -221,9 +289,24 @@ export class UsersService {
       }
     }
 
+    // branchIds no es una columna: se saca antes del merge y se trata aparte.
+    const { branchIds, ...datos } = updateUserDto;
+
+    if (branchIds) {
+      // El admin de sucursal trabaja donde manda, y eso lo decide la pantalla
+      // de sedes. Dejar cambiarlo aqui lo dejaria administrando una sede en la
+      // que ya no esta asignado.
+      if (user.role === UserRole.BRANCH_ADMIN) {
+        throw new BadRequestException(
+          'Las sedes de un administrador de sucursal se cambian desde la sede correspondiente, no editando el usuario.',
+        );
+      }
+      await this.setBranches(user.id, branchIds, tenantId);
+    }
+
     // Si el DTO trae 'password' y quieres permitir actualizarlo aquí, deberías hashearlo.
     // Si no, la lógica de 'changePassword' separada está bien.
-    const updatedUser = this.userRepository.merge(user, updateUserDto);
+    const updatedUser = this.userRepository.merge(user, datos);
     return this.userRepository.save(updatedUser);
   }
 

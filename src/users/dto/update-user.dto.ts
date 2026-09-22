@@ -1,4 +1,11 @@
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { UserRole } from '../entities/user.entity';
 
 export class UpdateUserDto {
@@ -39,4 +46,14 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   bio?: string; // Breve descripción
+
+  /**
+   * Sedes en las que trabaja. Solo tiene efecto si la clinica tiene el
+   * modulo de sucursales activo; si no, se ignora y queda en la principal.
+   * Vacio o ausente = sede principal.
+   */
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  branchIds?: string[];
 }
