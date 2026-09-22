@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DemoModule } from './demo/demo.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -134,6 +136,9 @@ import { SalesModule } from './sales/sales.module';
     PlannedTreatmentsModule,
     ConsentTemplatesModule,
     DemoModule,
+    // Habilita las tareas programadas (la revision diaria de cobros).
+    ScheduleModule.forRoot(),
+    SubscriptionsModule,
 
   ],
   controllers: [AppController],

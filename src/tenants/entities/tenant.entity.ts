@@ -118,6 +118,25 @@ export class Tenant {
   @Column({ type: 'date', nullable: true })
   nextPaymentDate: Date | null;
 
+  /**
+   * Dia del mes en que le toca pagar (1-31).
+   *
+   * Se guarda aparte de nextPaymentDate porque hay meses que no tienen ese
+   * dia: a quien paga los 31 se le cobra el 28 de febrero, pero en marzo debe
+   * volver al 31. Si el dia se dedujera de la fecha anterior se quedaria
+   * pegado al 28 para siempre y el cobro se iria corriendo solo.
+   */
+  @Column({ type: 'int', nullable: true })
+  billingDay: number | null;
+
+  /**
+   * Ultimo dia en que se le mando un aviso de pago. Solo sirve para no
+   * repetir el correo si el proceso diario corre dos veces el mismo dia
+   * (un reinicio del servidor, por ejemplo).
+   */
+  @Column({ type: 'date', nullable: true })
+  lastPaymentNoticeAt: Date | null;
+
   @Column({ type: 'varchar', nullable: true })
   address: string | null;
 

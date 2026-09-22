@@ -10,13 +10,15 @@ import { Announcement } from '../announcements/entities/announcement.entity';
 import { Patient } from '../patients/entities/patient.entity'; // <-- 1. Importa Patient
 import { Payment } from '../payments/entities/payment.entity'; // <-- 2. Importa Payment
 import { ConsentTemplate } from '../consent-templates/entities/consent-template.entity';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
   // 3. Añade 'Patient' y 'Payment' a la lista de entidades
   imports: [
     UsersModule,
     TypeOrmModule.forFeature([Tenant, User, Announcement, Patient, Payment, ConsentTemplate]), 
-    AuthModule
+    AuthModule,
+    SubscriptionsModule,
   ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],

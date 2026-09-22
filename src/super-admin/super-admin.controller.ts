@@ -103,6 +103,15 @@ export class SuperAdminController {
 
   @Patch('tenants/:id/renew')
   renewSubscription(@Param('id') id: string) {
-  return this.superAdminService.renewSubscription(id);
-}
+    return this.superAdminService.renewSubscription(id);
+  }
+
+  /**
+   * Simulacion de la revision diaria de cobros: dice a quien avisaria y a
+   * quien desactivaria hoy, sin tocar nada.
+   */
+  @Get('subscriptions/preview')
+  previewSubscriptionCheck() {
+    return this.superAdminService.previewSubscriptionCheck();
+  }
 }

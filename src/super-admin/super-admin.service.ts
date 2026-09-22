@@ -14,6 +14,8 @@ import { CreateConsentTemplateDto } from '../consent-templates/dto/create-consen
 import { UpdateConsentTemplateDto } from '../consent-templates/dto/update-consent-template.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AdminTransferService } from '../users/admin-transfer.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { addOneMonth, startOfDay, startOfToday } from '../common/billing-dates';
 
 @Injectable()
 export class SuperAdminService {
@@ -32,7 +34,17 @@ export class SuperAdminService {
     @InjectRepository(ConsentTemplate)
     private readonly consentTemplateRepository: Repository<ConsentTemplate>,
     private readonly adminTransferService: AdminTransferService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
+
+  /**
+   * Muestra a quien afectaria hoy la revision de cobros sin ejecutar nada.
+   * Conviene mirarlo antes de que el proceso corra por primera vez: si hay
+   * clinicas con fechas viejas, se desactivarian todas de golpe.
+   */
+  previewSubscriptionCheck() {
+    return this.subscriptionsService.preview();
+  }
 
 async findAllTenants() {
   // Usamos el Query Builder para cargar relaciones y conteos
@@ -69,10 +81,11 @@ async getSystemWideKpis() {
     // Al crear, establecemos las fechas de suscripción
     const tenant = await this.tenantRepository.findOneBy({ id: newUser.tenant.id });
     if (tenant) {
-      tenant.subscriptionStartDate = new Date();
-      const nextPayment = new Date();
-      nextPayment.setMonth(nextPayment.getMonth() + 1);
-      tenant.nextPaymentDate = nextPayment;
+      // El dia en que se da de alta queda como su dia de cobro para siempre.
+      const hoy = startOfToday();
+      tenant.subscriptionStartDate = hoy;
+      tenant.billingDay = hoy.getDate();
+      tenant.nextPaymentDate = addOneMonth(hoy, hoy.getDate());
       await this.tenantRepository.save(tenant);
     }
     return newUser;
@@ -203,21 +216,44 @@ async impersonate(userId: string) {
     return this.tenantRepository.save(tenant);
   }
 
+  /**
+   * Registra el pago de un mes.
+   *
+   * Hay dos casos y se comportan distinto a proposito:
+   *
+   *  a) La cuenta sigue ACTIVA (pagan puntual o dentro de los dias de margen).
+   *     La fecha de cobro NO se mueve: vence el 22, pagan el 24, el siguiente
+   *     vencimiento sigue siendo el 22. Asi son siempre 12 cobros al ano y los
+   *     dias de atraso los pierde el cliente, no la empresa.
+   *
+   *  b) La cuenta estaba apagada (INACTIVE por impago, o SUSPENDED porque se
+   *     habia dado de baja). El ciclo arranca de nuevo el dia que pagan: si
+   *     vuelven un 21, el siguiente vencimiento es el 21. No se les cobra el
+   *     tiempo que tuvieron el sistema cerrado.
+   */
   async renewSubscription(tenantId: string) {
     const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
     if (!tenant) {
       throw new NotFoundException(`Clínica con ID "${tenantId}" no encontrada.`);
     }
-    
-    // 1. Tomamos la fecha de pago actual como base.
-    // Si por alguna razón no existe, usamos la fecha de hoy.
-    const baseDate = tenant.nextPaymentDate ? new Date(tenant.nextPaymentDate) : new Date();
 
-    // 2. Calculamos la nueva fecha de pago (un mes a partir de la fecha base).
-    baseDate.setMonth(baseDate.getMonth() + 1);
-    
-    tenant.nextPaymentDate = baseDate;
-    tenant.status = TenantStatus.ACTIVE; // La reactivamos si estaba suspendida
+    const hoy = startOfToday();
+
+    // Sin fecha previa tampoco hay ciclo que continuar, asi que cuenta como
+    // arranque igual que una reactivacion.
+    const reinicia =
+      tenant.status !== TenantStatus.ACTIVE || !tenant.nextPaymentDate;
+
+    const base = reinicia ? hoy : startOfDay(tenant.nextPaymentDate!);
+    const diaDeCobro = reinicia
+      ? hoy.getDate()
+      : (tenant.billingDay ?? base.getDate());
+
+    tenant.billingDay = diaDeCobro;
+    tenant.nextPaymentDate = addOneMonth(base, diaDeCobro);
+    tenant.status = TenantStatus.ACTIVE;
+    // Empieza un ciclo limpio: los avisos del anterior ya no cuentan.
+    tenant.lastPaymentNoticeAt = null;
 
     return this.tenantRepository.save(tenant);
   }

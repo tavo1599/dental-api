@@ -180,4 +180,119 @@ export class MailService implements OnModuleInit {
       this.logger.error('Error crítico:', error);
     }
   }
+
+  // ==========================================================================
+  // AVISOS DE COBRO
+  //
+  // Los manda el proceso diario de suscripciones. Devuelven true solo si el
+  // correo salio: quien llama usa ese dato para no dar por avisada a una
+  // clinica a la que en realidad no le llego nada.
+  // ==========================================================================
+
+  /**
+   * Recordatorio antes de que se corte el servicio. Se usa tanto para el aviso
+   * previo como para el del mismo dia del vencimiento; cambia el tono segun
+   * los dias que falten.
+   */
+  async sendPaymentReminder(
+    clinicName: string,
+    to: string,
+    dueDate: string,
+    daysRemaining: number,
+    graceDays: number,
+  ): Promise<boolean> {
+    const venceHoy = daysRemaining <= 0;
+    const titulo = venceHoy
+      ? 'Tu pago vence hoy'
+      : `Tu pago vence en ${daysRemaining} ${daysRemaining === 1 ? 'día' : 'días'}`;
+    const cuerpo = venceHoy
+      ? `Hoy vence el pago de <strong>${clinicName}</strong>. Tienes ${graceDays} días
+         de margen para regularizarlo; pasado ese plazo la cuenta se desactiva y
+         el equipo no podrá entrar al sistema.`
+      : `El pago de <strong>${clinicName}</strong> vence el <strong>${dueDate}</strong>.
+         Te avisamos con tiempo para que no se te pase.`;
+
+    return this.sendBillingEmail(
+      to,
+      venceHoy ? `⚠️ ${titulo} - SonriAndes` : `${titulo} - SonriAndes`,
+      titulo,
+      cuerpo,
+      venceHoy ? '#b45309' : '#0f172a',
+      dueDate,
+    );
+  }
+
+  /**
+   * La cuenta ya se desactivo. Este es el correo que de verdad importa que
+   * llegue: es el unico aviso de por que dejo de funcionar el sistema.
+   */
+  async sendAccountInactivated(
+    clinicName: string,
+    to: string,
+    dueDate: string,
+  ): Promise<boolean> {
+    return this.sendBillingEmail(
+      to,
+      '🔴 Cuenta desactivada por falta de pago - SonriAndes',
+      'Cuenta desactivada',
+      `La cuenta de <strong>${clinicName}</strong> se desactivó por el pago pendiente
+       del <strong>${dueDate}</strong>. Nadie de tu equipo puede entrar al sistema
+       mientras siga así.<br><br>
+       <strong>No se ha borrado nada.</strong> Tus pacientes, historias e imágenes
+       siguen intactos: en cuanto se registre el pago vuelves a entrar con todo
+       como lo dejaste.`,
+      '#b91c1c',
+      dueDate,
+    );
+  }
+
+  /** Lo que comparten los tres correos de cobro, para no repetir el HTML. */
+  private async sendBillingEmail(
+    to: string,
+    subject: string,
+    heading: string,
+    bodyHtml: string,
+    accent: string,
+    dueDate: string,
+  ): Promise<boolean> {
+    if (!this.resend) {
+      this.logger.warn(`Sin Resend configurado: no se avisó a ${to} (${subject}).`);
+      return false;
+    }
+    try {
+      const { error } = await this.resend.emails.send({
+        from: this.fromAddress(),
+        to: [to],
+        replyTo: 'dentalsoft9@gmail.com',
+        subject,
+        html: `
+          <div style="background-color:#f3f4f6;padding:40px 10px;font-family:sans-serif;">
+            <table align="center" width="100%" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;">
+              <tr><td style="height:6px;background:${accent};"></td></tr>
+              <tr><td style="padding:32px;">
+                <h2 style="margin:0 0 16px;color:${accent};">${heading}</h2>
+                <p style="color:#4b5563;line-height:1.7;">${bodyHtml}</p>
+                <div style="margin:24px 0;padding:16px;background:#f8fafc;border-radius:10px;">
+                  <span style="color:#64748b;font-size:13px;">Fecha de vencimiento</span><br>
+                  <strong style="color:#0f172a;font-size:17px;">${dueDate}</strong>
+                </div>
+                <p style="color:#6b7280;font-size:13px;line-height:1.6;">
+                  Para regularizar el pago responde a este correo o escríbenos a
+                  <a href="mailto:dentalsoft9@gmail.com" style="color:#0284c7;">dentalsoft9@gmail.com</a>.
+                </p>
+              </td></tr>
+            </table>
+          </div>`,
+      });
+
+      if (error) {
+        this.logger.error(`Resend rechazó el aviso de cobro a ${to}`, error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.logger.error(`Error enviando el aviso de cobro a ${to}`, error);
+      return false;
+    }
+  }
 }
