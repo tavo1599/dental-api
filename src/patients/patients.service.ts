@@ -10,6 +10,10 @@ import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 import { OrthodonticHistory } from './entities/orthodontic-history.entity';
 import { UpdateOrthodonticHistoryDto } from './dto/update-orthodontic-history.dto';
+import { PsychologyHistory } from './entities/psychology-history.entity';
+import { AestheticHistory } from './entities/aesthetic-history.entity';
+import { UpdatePsychologyHistoryDto } from './dto/update-psychology-history.dto';
+import { UpdateAestheticHistoryDto } from './dto/update-aesthetic-history.dto';
 
 @Injectable()
 export class PatientsService {
@@ -22,6 +26,10 @@ export class PatientsService {
     private readonly odontopediatricHistoryRepository: Repository<OdontopediatricHistory>,
     @InjectRepository(OrthodonticHistory)
     private readonly orthodonticHistoryRepository: Repository<OrthodonticHistory>,
+    @InjectRepository(PsychologyHistory)
+    private readonly psychologyHistoryRepository: Repository<PsychologyHistory>,
+    @InjectRepository(AestheticHistory)
+    private readonly aestheticHistoryRepository: Repository<AestheticHistory>,
   ) {}
 
   async create(createPatientDto: CreatePatientDto, tenantId: string) {
@@ -129,6 +137,86 @@ export class PatientsService {
 
     Object.assign(history, dto);
     return this.odontopediatricHistoryRepository.save(history);
+  }
+
+  // =========================================================================
+  // ANAMNESIS DE PSYCHOLOGY
+  //
+  // Mismo patron que las dentales: se busca por paciente Y clinica, y si el
+  // paciente aun no tiene ficha se crea al guardar. Asi no hay que crearla
+  // por adelantado ni distinguir entre "vacia" y "no existe".
+  // =========================================================================
+  async getPsychologyHistory(patientId: string, tenantId: string) {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId, tenant: { id: tenantId } },
+      relations: ['psychologyHistory'],
+    });
+    if (!patient) {
+      throw new NotFoundException('Paciente no encontrado.');
+    }
+    return patient.psychologyHistory;
+  }
+
+  async updatePsychologyHistory(
+    patientId: string,
+    tenantId: string,
+    dto: UpdatePsychologyHistoryDto,
+  ) {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId, tenant: { id: tenantId } },
+      relations: ['psychologyHistory'],
+    });
+    if (!patient) {
+      throw new NotFoundException('Paciente no encontrado.');
+    }
+
+    let history = patient.psychologyHistory;
+    if (!history) {
+      history = this.psychologyHistoryRepository.create({ patient });
+    }
+
+    Object.assign(history, dto);
+    return this.psychologyHistoryRepository.save(history);
+  }
+
+  // =========================================================================
+  // ANAMNESIS DE AESTHETIC
+  //
+  // Mismo patron que las dentales: se busca por paciente Y clinica, y si el
+  // paciente aun no tiene ficha se crea al guardar. Asi no hay que crearla
+  // por adelantado ni distinguir entre "vacia" y "no existe".
+  // =========================================================================
+  async getAestheticHistory(patientId: string, tenantId: string) {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId, tenant: { id: tenantId } },
+      relations: ['aestheticHistory'],
+    });
+    if (!patient) {
+      throw new NotFoundException('Paciente no encontrado.');
+    }
+    return patient.aestheticHistory;
+  }
+
+  async updateAestheticHistory(
+    patientId: string,
+    tenantId: string,
+    dto: UpdateAestheticHistoryDto,
+  ) {
+    const patient = await this.patientRepository.findOne({
+      where: { id: patientId, tenant: { id: tenantId } },
+      relations: ['aestheticHistory'],
+    });
+    if (!patient) {
+      throw new NotFoundException('Paciente no encontrado.');
+    }
+
+    let history = patient.aestheticHistory;
+    if (!history) {
+      history = this.aestheticHistoryRepository.create({ patient });
+    }
+
+    Object.assign(history, dto);
+    return this.aestheticHistoryRepository.save(history);
   }
 
   async getOrthodonticHistory(patientId: string, tenantId: string): Promise<OrthodonticHistory> {

@@ -8,9 +8,11 @@ import { ClinicalHistoryModule } from '../clinical-history/clinical-history.modu
 import { AuditModule } from '../audit/audit.module';
 import { OdontopediatricHistory } from './entities/odontopediatric-history.entity';
 import { OrthodonticHistory } from './entities/orthodontic-history.entity';
+import { PsychologyHistory } from './entities/psychology-history.entity';
+import { AestheticHistory } from './entities/aesthetic-history.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Patient, MedicalHistory, OdontopediatricHistory, OrthodonticHistory,]), // Solo registra sus propias entidades
+    TypeOrmModule.forFeature([Patient, MedicalHistory, OdontopediatricHistory, OrthodonticHistory, PsychologyHistory, AestheticHistory]), // Solo registra sus propias entidades
     forwardRef(() => ClinicalHistoryModule), // Importa el módulo para usar su servicio
     AuditModule, 
   ],

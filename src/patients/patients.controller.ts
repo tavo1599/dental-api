@@ -11,6 +11,11 @@ import { AuditInterceptor } from '../audit/interceptors/audit.interceptor';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto'; // <-- Importa el nuevo DTO
 import { UpdateOdontopediatricHistoryDto } from './dto/update-odontopediatric-history.dto';
 import { UpdateOrthodonticHistoryDto } from './dto/update-orthodontic-history.dto';
+import { UpdatePsychologyHistoryDto } from './dto/update-psychology-history.dto';
+import { UpdateAestheticHistoryDto } from './dto/update-aesthetic-history.dto';
+import { SpecialtyGuard } from '../auth/guards/specialty.guard';
+import { RequiresSpecialty } from '../auth/decorators/requires-specialty.decorator';
+import { ClinicSpecialty } from '../tenants/specialty';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('patients')
@@ -63,6 +68,48 @@ export class PatientsController {
     @Body() dto: UpdateOdontopediatricHistoryDto,
   ) {
     return this.patientsService.updateOdontopediatricHistory(id, req.user.tenantId, dto);
+  }
+
+  // Solo la ve el rubro al que pertenece: el guardia lo impone en el
+  // servidor, no solo escondiendo la pestana.
+  @Get(':id/psychology-anamnesis')
+  @RequiresSpecialty(ClinicSpecialty.PSYCHOLOGY)
+  @UseGuards(SpecialtyGuard)
+  getPsychologyHistory(@Param('id') id: string, @Req() req) {
+    return this.patientsService.getPsychologyHistory(id, req.user.tenantId);
+  }
+
+  @Patch(':id/psychology-anamnesis')
+  @RequiresSpecialty(ClinicSpecialty.PSYCHOLOGY)
+  @UseGuards(SpecialtyGuard)
+  @AuditedAction('UPDATE_PSYCHOLOGY_HISTORY')
+  updatePsychologyHistory(
+    @Param('id') id: string,
+    @Body() dto: UpdatePsychologyHistoryDto,
+    @Req() req,
+  ) {
+    return this.patientsService.updatePsychologyHistory(id, req.user.tenantId, dto);
+  }
+
+  // Solo la ve el rubro al que pertenece: el guardia lo impone en el
+  // servidor, no solo escondiendo la pestana.
+  @Get(':id/aesthetic-anamnesis')
+  @RequiresSpecialty(ClinicSpecialty.AESTHETICS)
+  @UseGuards(SpecialtyGuard)
+  getAestheticHistory(@Param('id') id: string, @Req() req) {
+    return this.patientsService.getAestheticHistory(id, req.user.tenantId);
+  }
+
+  @Patch(':id/aesthetic-anamnesis')
+  @RequiresSpecialty(ClinicSpecialty.AESTHETICS)
+  @UseGuards(SpecialtyGuard)
+  @AuditedAction('UPDATE_AESTHETIC_HISTORY')
+  updateAestheticHistory(
+    @Param('id') id: string,
+    @Body() dto: UpdateAestheticHistoryDto,
+    @Req() req,
+  ) {
+    return this.patientsService.updateAestheticHistory(id, req.user.tenantId, dto);
   }
 
   @Get(':id/orthodontic-anamnesis')

@@ -59,6 +59,8 @@ import { MedicalHistory } from './patients/entities/medical-history.entity';
 import { OdontopediatricHistory } from './patients/entities/odontopediatric-history.entity';
 import { ToothState } from './odontogram/entities/tooth-state.entity';
 import { OrthodonticHistory } from './patients/entities/orthodontic-history.entity';
+import { PsychologyHistory } from './patients/entities/psychology-history.entity';
+import { AestheticHistory } from './patients/entities/aesthetic-history.entity';
 import { DentalBridge } from './odontogram/entities/dental-bridge.entity';
 import { Branch } from './branches/entities/branch.entity';
 import { BranchesModule } from './branches/branches.module';
@@ -93,7 +95,7 @@ import { SalesModule } from './sales/sales.module';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge, Branch, Product, ProductStock, StockMovement, ProductLot, Sale, SaleItem, AdminTransfer],
+        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge, Branch, Product, ProductStock, StockMovement, ProductLot, Sale, SaleItem, AdminTransfer, PsychologyHistory, AestheticHistory],
 
         // El esquema NUNCA se toca solo: todo cambio pasa por una migracion
         // revisable y reversible (ver src/migrations y src/data-source.ts).

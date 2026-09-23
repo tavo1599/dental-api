@@ -7,6 +7,8 @@ import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, CreateDate
 import { OrthodonticHistory } from './orthodontic-history.entity';
 // --- 1. IMPORTAR LA ENTIDAD BUDGET ---
 import { Budget } from '../../budgets/entities/budget.entity';
+import { PsychologyHistory } from './psychology-history.entity';
+import { AestheticHistory } from './aesthetic-history.entity';
 
 export enum Gender {
   MALE = 'male',
@@ -87,6 +89,14 @@ export class Patient {
 
   @OneToOne(() => OrthodonticHistory, history => history.patient, { cascade: true })
   orthodonticHistory: OrthodonticHistory;
+
+  // Anamnesis propias de los rubros no dentales. Cada paciente tiene como
+  // mucho la de su clinica; las demas quedan nulas y no molestan.
+  @OneToOne(() => PsychologyHistory, history => history.patient, { cascade: true })
+  psychologyHistory: PsychologyHistory;
+
+  @OneToOne(() => AestheticHistory, history => history.patient, { cascade: true })
+  aestheticHistory: AestheticHistory;
 
   @OneToMany(() => ClinicalHistoryEntry, (entry) => entry.patient)
   clinicalHistory: ClinicalHistoryEntry[];
