@@ -31,7 +31,12 @@ export class MailService implements OnModuleInit {
    * Codigo para transferir la titularidad de la clinica. Va al correo del
    * titular ACTUAL: quien controle ese correo es quien autoriza el cambio.
    */
-  async sendAdminTransferCode(currentAdmin: User, target: User, code: string) {
+  async sendAdminTransferCode(
+    currentAdmin: User,
+    target: User,
+    code: string,
+    profesion = 'dentista',
+  ) {
     if (!this.resend) {
       this.logger.error('Resend no está inicializado.');
       return;
@@ -50,7 +55,7 @@ export class MailService implements OnModuleInit {
                 <p style="color:#4b5563;line-height:1.6;">
                   Has solicitado entregar la administración de tu clínica a
                   <strong>${target.fullName}</strong>. Si lo confirmas, esa persona
-                  pasará a ser el titular y tú quedarás como dentista.
+                  pasará a ser el titular y tú quedarás como ${profesion}.
                 </p>
                 <p style="color:#4b5563;">Tu código de verificación es:</p>
                 <div style="text-align:center;margin:24px 0;">
@@ -75,6 +80,8 @@ export class MailService implements OnModuleInit {
     previousAdmin: User | null,
     newAdmin: User,
     forced: boolean,
+    /** Como se llama al profesional en esta clinica: dentista, psicologo... */
+    profesion = 'dentista',
   ) {
     if (!this.resend) return;
 
@@ -98,7 +105,7 @@ export class MailService implements OnModuleInit {
                 <h2 style="margin:0 0 8px;color:#111827;">Cambio de administrador</h2>
                 <p style="color:#4b5563;line-height:1.6;">
                   <strong>${newAdmin.fullName}</strong> es ahora el administrador de la clínica.
-                  ${previousAdmin ? `<strong>${previousAdmin.fullName}</strong> pasa a ser dentista y conserva su agenda y sus pacientes.` : ''}
+                  ${previousAdmin ? `<strong>${previousAdmin.fullName}</strong> pasa a ser ${profesion} y conserva su agenda y sus pacientes.` : ''}
                 </p>
                 <p style="color:#6b7280;font-size:13px;">${motivo}</p>
                 <p style="color:#6b7280;font-size:13px;">

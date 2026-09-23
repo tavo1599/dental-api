@@ -39,3 +39,23 @@ export function usesOdontogram(specialty: ClinicSpecialty | null | undefined): b
   // Sin valor se asume dental: una clinica anterior a este campo lo es.
   return (specialty ?? ClinicSpecialty.DENTAL) === ClinicSpecialty.DENTAL;
 }
+
+/**
+ * Como se llama al profesional que atiende, en minuscula y para usar dentro
+ * de una frase: "Fulano pasa a ser dentista".
+ *
+ * El equivalente del frontend esta en src/i18n/vocabulary.ts. Son dos
+ * archivos porque el backend solo necesita esta palabra y no el diccionario
+ * entero; si algun dia hace falta mas, se unifican.
+ */
+export const PROFESSIONAL_LABELS: Record<ClinicSpecialty, string> = {
+  [ClinicSpecialty.DENTAL]: 'dentista',
+  [ClinicSpecialty.PSYCHOLOGY]: 'psicólogo',
+  [ClinicSpecialty.AESTHETICS]: 'especialista',
+};
+
+export function professionalLabel(
+  specialty: ClinicSpecialty | null | undefined,
+): string {
+  return PROFESSIONAL_LABELS[specialty ?? ClinicSpecialty.DENTAL];
+}

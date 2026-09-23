@@ -13,6 +13,7 @@ import {
 } from './entities/admin-transfer.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { MailService } from '../mail/mail.service';
+import { ClinicSpecialty, professionalLabel } from '../tenants/specialty';
 
 /** El codigo caduca pronto a proposito: es para usarlo en el momento. */
 const CODE_TTL_MINUTES = 15;
@@ -68,7 +69,13 @@ export class AdminTransferService {
       }),
     );
 
-    await this.mailService.sendAdminTransferCode(currentAdmin, target, code);
+    const profesion = professionalLabel(await this.tenantSpecialty(tenantId));
+    await this.mailService.sendAdminTransferCode(
+      currentAdmin,
+      target,
+      code,
+      profesion,
+    );
 
     return {
       message: `Se envió un código de verificación a ${this.maskEmail(currentAdmin.email)}. Caduca en ${CODE_TTL_MINUTES} minutos.`,
@@ -189,6 +196,10 @@ export class AdminTransferService {
     forced: boolean,
   ) {
     const saliente = transfer.fromUser;
+    // Como se le llama al saliente depende del rubro: en un consultorio de
+    // psicologia no pasa a ser "dentista".
+    const rubro = await this.tenantSpecialty(tenantId);
+    const profesion = professionalLabel(rubro);
     const entrante = transfer.toUser;
     if (!entrante) {
       throw new BadRequestException(
@@ -214,15 +225,24 @@ export class AdminTransferService {
 
     // Se avisa a ambos: el saliente debe enterarse aunque no lo haya hecho el.
     await this.mailService
-      .sendAdminTransferDone(saliente, entrante, forced)
+      .sendAdminTransferDone(saliente, entrante, forced, profesion)
       .catch(() => undefined);
 
     return {
       message: `${entrante.fullName} es ahora el administrador de la clínica.${
-        saliente ? ` ${saliente.fullName} pasa a ser dentista.` : ''
+        saliente ? ` ${saliente.fullName} pasa a ser ${profesion}.` : ''
       }`,
       newAdmin: { id: entrante.id, fullName: entrante.fullName },
     };
+  }
+
+  /** Rubro de la clinica, solo para elegir la palabra del mensaje. */
+  private async tenantSpecialty(tenantId: string): Promise<ClinicSpecialty> {
+    const fila = await this.dataSource.query(
+      `SELECT specialty FROM tenants WHERE id = $1`,
+      [tenantId],
+    );
+    return fila?.[0]?.specialty ?? ClinicSpecialty.DENTAL;
   }
 
   private async resolveTarget(toUserId: string, tenantId: string) {
