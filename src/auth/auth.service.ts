@@ -20,6 +20,7 @@ import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ClinicSpecialty } from '../tenants/specialty';
 
 @Injectable()
 export class AuthService {
@@ -84,6 +85,7 @@ export class AuthService {
           address: clinicAddress,
           plan: 'profesional',
           maxUsers: 10,
+          specialty: registerDto.specialty ?? ClinicSpecialty.DENTAL,
         });
         await manager.save(newTenant);
 

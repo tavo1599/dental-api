@@ -7,6 +7,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { TenantStatus } from '../tenants/entities/tenant.entity';
+import { ClinicSpecialty } from '../tenants/specialty';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -65,6 +66,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantName: user.tenant?.name ?? null,
       tenantStatus: user.tenant?.status ?? null,
       branchesEnabled: user.tenant?.branchesEnabled ?? false,
+      // Rubro de la clinica: decide si ve el odontograma y que palabras se
+      // le muestran. Sin valor se asume dental, que es lo que era todo hasta
+      // que existio este campo.
+      specialty: user.tenant?.specialty ?? ClinicSpecialty.DENTAL,
       // Permisos que cada clinica configura por su cuenta. Viajan aqui porque
       // el tenant ya viene cargado: asi SettingsGuard los comprueba sin
       // sumar una consulta por peticion.

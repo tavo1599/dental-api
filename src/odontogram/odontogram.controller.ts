@@ -8,8 +8,9 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { OdontogramRecordType } from './enums/record-type.enum';
+import { OdontogramEnabledGuard } from '../auth/guards/odontogram-enabled.guard';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OdontogramEnabledGuard)
 @Controller('patients/:patientId/odontogram')
 export class OdontogramController {
   constructor(private readonly odontogramService: OdontogramService) {}

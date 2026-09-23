@@ -7,6 +7,7 @@ import { TenantStatus } from '../tenants/entities/tenant.entity';
 import { CreateConsentTemplateDto } from '../consent-templates/dto/create-consent-template.dto';
 import { UpdateConsentTemplateDto } from '../consent-templates/dto/update-consent-template.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
+import { ClinicSpecialty } from '../tenants/specialty';
 
 @UseGuards(AuthGuard('jwt'), SuperAdminGuard) // Protege todo el controlador
 @Controller('super-admin')
@@ -99,6 +100,15 @@ export class SuperAdminController {
     @Body('enabled') enabled: boolean,
   ) {
     return this.superAdminService.setBranchesEnabled(id, enabled === true);
+  }
+
+  /** Cambia el rubro. No borra datos: solo deja de mostrarse lo dental. */
+  @Patch('tenants/:id/specialty')
+  setSpecialty(
+    @Param('id') id: string,
+    @Body('specialty') specialty: ClinicSpecialty,
+  ) {
+    return this.superAdminService.setSpecialty(id, specialty);
   }
 
   @Patch('tenants/:id/renew')

@@ -1,9 +1,15 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { ClinicSpecialty } from '../../tenants/specialty';
 
 export class RegisterAuthDto {
   @IsString()
   @IsNotEmpty()
   clinicName: string;
+
+  /** A que se dedica la clinica. Si no viene, dental. */
+  @IsEnum(ClinicSpecialty)
+  @IsOptional()
+  specialty?: ClinicSpecialty;
 
   @IsString()
   @IsOptional()

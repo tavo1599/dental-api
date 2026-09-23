@@ -15,6 +15,7 @@ import { UpdateConsentTemplateDto } from '../consent-templates/dto/update-consen
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AdminTransferService } from '../users/admin-transfer.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { ClinicSpecialty, SPECIALTY_LABELS } from '../tenants/specialty';
 import { addOneMonth, startOfDay, startOfToday } from '../common/billing-dates';
 
 @Injectable()
@@ -187,6 +188,27 @@ async impersonate(userId: string) {
    */
   async transferAdmin(tenantId: string, toUserId: string) {
     return this.adminTransferService.forceBySuperAdmin(tenantId, toUserId);
+  }
+
+  /**
+   * Cambia el rubro de una clinica ya creada.
+   *
+   * No borra nada: si una clinica dental pasa a psicologia, sus
+   * odontogramas siguen en la base y vuelven a verse si se revierte. Lo
+   * unico que cambia es que deja de mostrarse y el servidor deja de
+   * aceptar peticiones al odontograma.
+   */
+  async setSpecialty(tenantId: string, specialty: ClinicSpecialty) {
+    const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
+    if (!tenant) {
+      throw new NotFoundException('Clínica no encontrada.');
+    }
+    tenant.specialty = specialty;
+    await this.tenantRepository.save(tenant);
+    return {
+      message: `"${tenant.name}" ahora es ${SPECIALTY_LABELS[specialty]}.`,
+      specialty,
+    };
   }
 
   async setBranchesEnabled(tenantId: string, enabled: boolean) {

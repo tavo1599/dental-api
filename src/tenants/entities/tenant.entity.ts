@@ -1,6 +1,7 @@
 import { Column, Entity, PrimaryGeneratedColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Patient } from '../../patients/entities/patient.entity';
+import { ClinicSpecialty } from '../specialty';
 
 export enum TenantStatus {
   ACTIVE = 'active',
@@ -78,6 +79,19 @@ export class Tenant {
     dentistsCanManageTreatments?: boolean;
     assistantsCanManageTreatments?: boolean;
   };
+
+  /**
+   * A que se dedica la clinica. Decide si ve el odontograma, que palabras
+   * se le muestran y que ficha de anamnesis se le ofrece.
+   *
+   * Por defecto DENTAL: las clinicas que ya existen no deben notar nada.
+   */
+  @Column({
+    type: 'enum',
+    enum: ClinicSpecialty,
+    default: ClinicSpecialty.DENTAL,
+  })
+  specialty: ClinicSpecialty;
 
   @Column({ name: 'isTest', type: 'boolean', default: false })
   isTest: boolean;

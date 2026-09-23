@@ -2,8 +2,9 @@ import { Controller, Get, Body, Param, UseGuards, Req, Patch } from '@nestjs/com
 import { AuthGuard } from '@nestjs/passport';
 import { PeriodontogramService } from './periodontogram.service';
 import { UpdatePeriodontogramDto } from './dto/update-periodontogram.dto';
+import { OdontogramEnabledGuard } from '../auth/guards/odontogram-enabled.guard';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OdontogramEnabledGuard)
 @Controller('patients/:patientId/periodontogram')
 export class PeriodontogramController {
   constructor(private readonly periodontogramService: PeriodontogramService) {}
