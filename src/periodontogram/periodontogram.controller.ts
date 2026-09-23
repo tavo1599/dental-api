@@ -2,9 +2,12 @@ import { Controller, Get, Body, Param, UseGuards, Req, Patch } from '@nestjs/com
 import { AuthGuard } from '@nestjs/passport';
 import { PeriodontogramService } from './periodontogram.service';
 import { UpdatePeriodontogramDto } from './dto/update-periodontogram.dto';
-import { OdontogramEnabledGuard } from '../auth/guards/odontogram-enabled.guard';
+import { SpecialtyGuard } from '../auth/guards/specialty.guard';
+import { RequiresSpecialty } from '../auth/decorators/requires-specialty.decorator';
+import { ClinicSpecialty } from '../tenants/specialty';
 
-@UseGuards(AuthGuard('jwt'), OdontogramEnabledGuard)
+@UseGuards(AuthGuard('jwt'), SpecialtyGuard)
+@RequiresSpecialty(ClinicSpecialty.DENTAL)
 @Controller('patients/:patientId/periodontogram')
 export class PeriodontogramController {
   constructor(private readonly periodontogramService: PeriodontogramService) {}
