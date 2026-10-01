@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -20,11 +21,16 @@ import { CurrentBranch } from '../auth/decorators/current-branch.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/entities/user.entity';
+import { TreatmentSuppliesService } from './treatment-supplies.service';
+import { AuditedAction } from '../audit/decorators/audited-action.decorator';
 
 @UseGuards(AuthGuard('jwt'), BranchContextGuard)
 @Controller('inventory')
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly suppliesService: TreatmentSuppliesService,
+  ) {}
 
   // --- Catalogo ---
 
@@ -127,6 +133,34 @@ export class InventoryController {
       productId,
       req.user.tenantId,
       branchId,
+    );
+  }
+
+  // =========================================================================
+  // RECETA DE UN TRATAMIENTO: que insumos consume y cuanto
+  //
+  // No lleva BranchContextGuard porque la receta es de la clinica, no de una
+  // sede: lo que cambia por sede es el stock, no lo que gasta el tratamiento.
+  // =========================================================================
+  @Get('treatment-supplies/:treatmentId')
+  findSupplies(@Param('treatmentId') treatmentId: string, @Req() req) {
+    return this.suppliesService.findForTreatment(treatmentId, req.user.tenantId);
+  }
+
+  /** Se manda la receta COMPLETA; reemplaza la anterior. */
+  @Put('treatment-supplies/:treatmentId')
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN)
+  @UseGuards(RolesGuard)
+  @AuditedAction('UPDATE_TREATMENT_SUPPLIES')
+  replaceSupplies(
+    @Param('treatmentId') treatmentId: string,
+    @Body('items') items: Array<{ productId: string; quantity: number }>,
+    @Req() req,
+  ) {
+    return this.suppliesService.replaceForTreatment(
+      treatmentId,
+      req.user.tenantId,
+      items ?? [],
     );
   }
 }

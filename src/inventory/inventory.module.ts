@@ -7,6 +7,9 @@ import { ProductStock } from './entities/product-stock.entity';
 import { StockMovement } from './entities/stock-movement.entity';
 import { ProductLot } from './entities/product-lot.entity';
 import { Branch } from '../branches/entities/branch.entity';
+import { TreatmentSupply } from './entities/treatment-supply.entity';
+import { Treatment } from '../treatments/entities/treatment.entity';
+import { TreatmentSuppliesService } from './treatment-supplies.service';
 
 @Module({
   imports: [
@@ -17,10 +20,12 @@ import { Branch } from '../branches/entities/branch.entity';
       StockMovement,
       ProductLot,
       Branch,
+      TreatmentSupply,
+      Treatment,
     ]),
   ],
   controllers: [InventoryController],
-  providers: [InventoryService],
-  exports: [InventoryService],
+  providers: [InventoryService, TreatmentSuppliesService],
+  exports: [InventoryService, TreatmentSuppliesService],
 })
 export class InventoryModule {}

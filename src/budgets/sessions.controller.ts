@@ -62,6 +62,10 @@ export class SessionsController {
   @Delete(':sessionId')
   @AuditedAction('DELETE_TREATMENT_SESSION')
   remove(@Param('sessionId') sessionId: string, @Req() req) {
-    return this.sessionsService.removeSession(sessionId, req.user.tenantId);
+    return this.sessionsService.removeSession(
+      sessionId,
+      req.user.tenantId,
+      req.user.id,
+    );
   }
 }

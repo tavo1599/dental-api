@@ -25,6 +25,7 @@ import { Treatment } from './treatments/entities/treatment.entity';
 import { BudgetsModule } from './budgets/budgets.module';
 import { Budget } from './budgets/entities/budget.entity';
 import { TreatmentSessionLog } from './budgets/entities/treatment-session-log.entity';
+import { TreatmentSupply } from './inventory/entities/treatment-supply.entity';
 import { BudgetItem } from './budgets/entities/budget-item.entity';
 import { PaymentsModule } from './payments/payments.module';
 import { Payment } from './payments/entities/payment.entity';
@@ -96,7 +97,7 @@ import { SalesModule } from './sales/sales.module';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge, Branch, Product, ProductStock, StockMovement, ProductLot, Sale, SaleItem, AdminTransfer, PsychologyHistory, AestheticHistory, TreatmentSessionLog],
+        entities: [Tenant, User, Patient, ClinicalHistoryEntry, Appointment, ToothSurfaceState, Treatment, Budget, BudgetItem, Payment, PatientDocument, PeriodontalMeasurement, Prescription, Expense, AuditLog, Announcement, Cie10Code, PlannedTreatment, ConsentTemplate, Tooth, MedicalHistory, OdontopediatricHistory, ToothState, OrthodonticHistory, DentalBridge, Branch, Product, ProductStock, StockMovement, ProductLot, Sale, SaleItem, AdminTransfer, PsychologyHistory, AestheticHistory, TreatmentSessionLog, TreatmentSupply],
 
         // El esquema NUNCA se toca solo: todo cambio pasa por una migracion
         // revisable y reversible (ver src/migrations y src/data-source.ts).

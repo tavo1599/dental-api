@@ -12,6 +12,7 @@ import { PatientsModule } from '../patients/patients.module'; // <-- 1. Importa 
 import { TreatmentSessionLog } from './entities/treatment-session-log.entity';
 import { SessionsService } from './sessions.service';
 import { SessionsController } from './sessions.controller';
+import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
   imports: [
@@ -24,7 +25,9 @@ import { SessionsController } from './sessions.controller';
       Branch,
       TreatmentSessionLog,
     ]),
-    PatientsModule // <-- 2. Añádelo aquí
+    PatientsModule, // <-- 2. Añádelo aquí
+    // Para descontar los insumos que consume cada sesion.
+    InventoryModule,
   ],
   controllers: [BudgetsController, SessionsController],
   providers: [BudgetsService, SessionsService],

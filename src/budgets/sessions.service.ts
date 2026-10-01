@@ -11,6 +11,7 @@ import { Patient } from '../patients/entities/patient.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { Branch } from '../branches/entities/branch.entity';
 import { User } from '../users/entities/user.entity';
+import { TreatmentSuppliesService } from '../inventory/treatment-supplies.service';
 
 /** Avance de un paquete, tal como se le muestra a quien atiende. */
 export interface SessionPackage {
@@ -49,6 +50,7 @@ export class SessionsService {
     private readonly logRepository: Repository<TreatmentSessionLog>,
     @InjectRepository(BudgetItem)
     private readonly itemRepository: Repository<BudgetItem>,
+    private readonly suppliesService: TreatmentSuppliesService,
   ) {}
 
   /**
@@ -167,9 +169,22 @@ export class SessionsService {
     });
     await this.logRepository.save(log);
 
+    // Se descuentan los insumos que consume el tratamiento. Si no tiene
+    // receta no hace nada. No se bloquea si falta stock: la sesion ya se
+    // hizo, asi que se registra y se avisa.
+    const consumo = await this.suppliesService.consumeForTreatment(
+      (item as any).treatment.id,
+      tenantId,
+      sede,
+      userId,
+      { type: 'treatment_session', id: log.id },
+    );
+
     const total = hechas + 1;
     return {
       message: `Sesión ${total} de ${item.sessionsTotal} registrada.`,
+      suppliesUsed: consumo.consumed,
+      stockWarning: consumo.warning,
       sessionsDone: total,
       sessionsTotal: item.sessionsTotal,
       sessionsLeft: Math.max(0, item.sessionsTotal - total),
@@ -177,16 +192,35 @@ export class SessionsService {
   }
 
   /** Deshace una sesion registrada por error. */
-  async removeSession(sessionId: string, tenantId: string) {
+  async removeSession(sessionId: string, tenantId: string, userId: string) {
     const log = await this.logRepository.findOne({
       where: { id: sessionId, tenant: { id: tenantId } },
+      relations: ['budgetItem', 'budgetItem.treatment', 'branch'],
     });
     if (!log) {
       throw new NotFoundException(
         'La sesión no existe o no pertenece a esta clínica.',
       );
     }
+
+    const tratamientoId = log.budgetItem?.treatment?.id;
+    const sedeId = log.branch?.id;
+    const idLog = log.id;
+
     await this.logRepository.remove(log);
+
+    // Lo que consumio vuelve al stock. Sin esto, cada correccion dejaria el
+    // inventario descuadrado para siempre.
+    if (tratamientoId && sedeId) {
+      await this.suppliesService.returnForTreatment(
+        tratamientoId,
+        tenantId,
+        sedeId,
+        userId,
+        { type: 'treatment_session', id: idLog },
+      );
+    }
+
     return { message: 'Sesión eliminada del registro.' };
   }
 
