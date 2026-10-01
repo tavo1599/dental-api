@@ -8,6 +8,7 @@ import { Patient } from '../patients/entities/patient.entity';
 import { User } from '../users/entities/user.entity';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentTimeDto } from './dto/update-appointment-time.dto';
+import { parseClinicDateTime } from '../common/clinic-time';
 
 @Injectable()
 export class AppointmentsService {
@@ -35,9 +36,10 @@ export class AppointmentsService {
     }
     const { patientId, doctorId, notes } = createDto;
     
-    // Convertir fechas
-    const startTime = new Date(`${createDto.startTime}-05:00`);
-    const endTime = new Date(`${createDto.endTime}-05:00`);
+    // Si el cliente no manda zona se entiende hora de Lima; si la manda, se
+    // respeta. Concatenar a ciegas rompia con cualquier fecha ISO con Z.
+    const startTime = parseClinicDateTime(createDto.startTime, 'hora de inicio');
+    const endTime = parseClinicDateTime(createDto.endTime, 'hora de fin');
 
     // --- VALIDACIÓN DE CRUCE DE HORARIOS (CORREGIDO) ---
     const overlappingAppointment = await this.appointmentRepository.findOne({
@@ -205,10 +207,11 @@ if (filters?.startDate && filters?.endDate) {
     });
     if (!appointment) throw new NotFoundException(`Appointment with ID "${appointmentId}" not found.`);
 
-    const newStartTime = new Date(`${dto.startTime}-05:00`);
+    // Mismo criterio que al crear: la zona solo se asume si no viene.
+    const newStartTime = parseClinicDateTime(dto.startTime, 'nueva hora de inicio');
     let newEndTime: Date;
     if (dto.endTime) {
-      newEndTime = new Date(`${dto.endTime}-05:00`);
+      newEndTime = parseClinicDateTime(dto.endTime, 'nueva hora de fin');
     } else {
       const originalStartTime = new Date(appointment.startTime);
       const originalEndTime = new Date(appointment.endTime);
