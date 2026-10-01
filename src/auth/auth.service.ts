@@ -199,6 +199,10 @@ export class AuthService {
             domainSlug: tenant.domainSlug,
             // Modulo de sucursales: lo activa el super admin, no la clinica.
             branchesEnabled: tenant.branchesEnabled,
+            // Rubro de la clinica. Sin esto el frontend lo lee como undefined,
+            // cae al valor por defecto 'dental' y le muestra el odontograma a
+            // un consultorio de psicologia.
+            specialty: tenant.specialty,
             systemSettings: tenant.systemSettings,
             websiteConfig: tenant.websiteConfig,
           }

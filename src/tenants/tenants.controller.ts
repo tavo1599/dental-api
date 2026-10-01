@@ -68,6 +68,10 @@ export class PublicTenantsController {
       id: tenant.id,
       name: tenant.name,
       domainSlug: tenant.domainSlug, // Agregado para consistencia
+      // El rubro viaja para que la web publica adapte sus textos por
+      // defecto. No es dato sensible: a que se dedica la clinica es
+      // justamente lo que anuncia su propia web.
+      specialty: tenant.specialty,
       logoUrl: tenant.logoUrl,
       address: tenant.address,
       phone: tenant.phone,
