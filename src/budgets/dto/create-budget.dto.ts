@@ -26,6 +26,14 @@ class BudgetItemDto {
   @IsNumber()
   @Min(0)
   priceAtTimeOfBudget: number;
+
+  /**
+   * En cuantas sesiones se presta. Si no viene, se toma del catalogo.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  sessionsTotal?: number;
 }
 
 export class CreateBudgetDto {

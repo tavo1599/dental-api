@@ -22,4 +22,17 @@ export class CreateTreatmentDto {
   @IsInt()
   @IsOptional()
   duration?: number; // Duración en minutos, opcional
+
+  /**
+   * En cuantas sesiones se presta el servicio. 1 para lo que se hace de una
+   * vez; mas para lo que se cobra por paquete (terapia, estetica, ortodoncia).
+   *
+   * @Type(() => Number) porque un <input type="number"> puede llegar como
+   * texto, igual que pasa con el precio.
+   */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  defaultSessions?: number;
 }

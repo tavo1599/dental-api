@@ -85,10 +85,17 @@ export class BudgetsService {
         
         itemsTotal += price * quantity;
 
+        // Las sesiones se congelan igual que el precio: cambiar el catalogo
+        // despues no debe alterar un paquete ya vendido.
+        const sessionsTotal = Number(
+          itemDto.sessionsTotal ?? treatment.defaultSessions ?? 1,
+        );
+
         const newBudgetItem = this.budgetItemRepository.create({
           treatment,
           quantity: quantity,
           priceAtTimeOfBudget: price,
+          sessionsTotal,
         });
         budgetItems.push(newBudgetItem);
       }

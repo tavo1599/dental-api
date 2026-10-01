@@ -9,6 +9,9 @@ import { User } from '../users/entities/user.entity';
 import { Branch } from '../branches/entities/branch.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { PatientsModule } from '../patients/patients.module'; // <-- 1. Importa el Módulo de Pacientes
+import { TreatmentSessionLog } from './entities/treatment-session-log.entity';
+import { SessionsService } from './sessions.service';
+import { SessionsController } from './sessions.controller';
 
 @Module({
   imports: [
@@ -18,11 +21,12 @@ import { PatientsModule } from '../patients/patients.module'; // <-- 1. Importa 
       Treatment, 
       User,   
       Tenant,
-      Branch
+      Branch,
+      TreatmentSessionLog,
     ]),
     PatientsModule // <-- 2. Añádelo aquí
   ],
-  controllers: [BudgetsController],
-  providers: [BudgetsService],
+  controllers: [BudgetsController, SessionsController],
+  providers: [BudgetsService, SessionsService],
 })
 export class BudgetsModule {}

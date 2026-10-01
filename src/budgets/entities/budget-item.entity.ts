@@ -15,6 +15,17 @@ export class BudgetItem {
   @Column({ default: 1 })
   quantity: number;
 
+  /**
+   * Sesiones pactadas para este paciente. Se copia del catalogo al crear el
+   * presupuesto, igual que el precio: cambiar luego el catalogo no debe
+   * alterar un paquete ya vendido.
+   *
+   * Las sesiones YA HECHAS no se guardan aqui: se cuentan de
+   * treatment_session_logs, para que no haya un contador que se desincronice.
+   */
+  @Column({ type: 'int', default: 1 })
+  sessionsTotal: number;
+
   // Cada item pertenece a UN presupuesto
   @ManyToOne(() => Budget, (budget) => budget.items, { onDelete: 'CASCADE' })
   budget: Budget;
