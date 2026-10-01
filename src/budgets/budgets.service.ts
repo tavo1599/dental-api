@@ -85,11 +85,10 @@ export class BudgetsService {
         
         itemsTotal += price * quantity;
 
-        // Las sesiones se congelan igual que el precio: cambiar el catalogo
-        // despues no debe alterar un paquete ya vendido.
-        const sessionsTotal = Number(
-          itemDto.sessionsTotal ?? treatment.defaultSessions ?? 1,
-        );
+        // Lo que indique el especialista para ESTE paciente. No se hereda de
+        // ningun valor del catalogo: el numero de sesiones es demasiado
+        // variable para fijarlo en el servicio.
+        const sessionsTotal = Math.max(1, Number(itemDto.sessionsTotal ?? 1));
 
         const newBudgetItem = this.budgetItemRepository.create({
           treatment,

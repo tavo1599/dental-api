@@ -16,9 +16,11 @@ export class BudgetItem {
   quantity: number;
 
   /**
-   * Sesiones pactadas para este paciente. Se copia del catalogo al crear el
-   * presupuesto, igual que el precio: cambiar luego el catalogo no debe
-   * alterar un paquete ya vendido.
+   * Sesiones que el especialista indica para ESTE paciente.
+   *
+   * No sale de ningun valor del catalogo a proposito: el mismo tratamiento
+   * puede hacerse en 2 sesiones para uno y en 4 para otro, asi que fijarlo
+   * en el servicio solo daria trabajo de mas.
    *
    * Las sesiones YA HECHAS no se guardan aqui: se cuentan de
    * treatment_session_logs, para que no haya un contador que se desincronice.

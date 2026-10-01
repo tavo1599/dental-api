@@ -20,16 +20,6 @@ export class Treatment {
   duration: number;
 
   // Cada tratamiento pertenece a UNA clínica (tenant)
-  /**
-   * En cuantas sesiones se presta este servicio.
-   *
-   * 1 para lo que se hace de una vez. Mas para lo que se cobra por paquete:
-   * terapia, tratamientos esteticos, tambien ortodoncia. Es solo el valor
-   * sugerido; lo que manda en cada paciente es lo pactado en su presupuesto.
-   */
-  @Column({ type: 'int', default: 1 })
-  defaultSessions: number;
-
   @ManyToOne(() => Tenant)
   tenant: Tenant;
 }
