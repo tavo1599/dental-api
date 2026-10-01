@@ -36,6 +36,23 @@ export class ClinicalHistoryEntry {
   nextAppointmentDate?: Date;
 
   // --- CORRECCIÓN AQUÍ ---
+  /**
+   * Datos propios del rubro para ESTA sesion.
+   *
+   * Va en jsonb y no en una columna por campo porque cada rubro anota cosas
+   * distintas y casi todas quedarian nulas en los demas:
+   *
+   *   psicologia  tecnicas aplicadas, tareas, estado del paciente,
+   *               adherencia y reevaluacion de riesgo
+   *   estetica    zonas tratadas, parametros del equipo, producto y lote,
+   *               reacciones adversas
+   *
+   * Son datos que se leen cuando el paciente vuelve, no se agregan en
+   * reportes, asi que no hace falta que sean columnas.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  sessionDetails: Record<string, any> | null;
+
   @ManyToOne(() => Patient, (patient) => patient.clinicalHistory, { onDelete: 'CASCADE' })
   patient: Patient;
   // --- FIN DE LA CORRECCIÓN ---

@@ -57,10 +57,17 @@ export class ClinicalHistoryService {
         ? null
         : createDto.nextAppointmentPlan;
 
+    // Un objeto vacio se guarda como null: si el rubro no anota nada en esta
+    // sesion, mejor no dejar un {} suelto en la base.
+    const detalles = createDto.sessionDetails;
+    const sanitizedDetails =
+      detalles && Object.keys(detalles).length > 0 ? detalles : null;
+
     const newEntry = this.historyRepository.create({
       ...createDto,
       nextAppointmentDate: sanitizedDate,
       nextAppointmentPlan: sanitizedPlan,
+      sessionDetails: sanitizedDetails,
       patient: { id: patientId },
       user: { id: userId },
       tenant: { id: tenantId },

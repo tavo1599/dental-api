@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsObject } from 'class-validator';
 import { Transform } from 'class-transformer'; // <-- IMPORTANTE: Importar esto
 
 export class CreateClinicalHistoryEntryDto {
@@ -41,4 +41,9 @@ export class CreateClinicalHistoryEntryDto {
   // Al ser null, @IsOptional hace que @IsDateString lo ignore y pase la validación.
   @Transform(({ value }) => value === '' ? null : value)
   nextAppointmentDate?: string;
+
+  /** Datos propios del rubro para esta sesion. Su forma la decide el front. */
+  @IsObject()
+  @IsOptional()
+  sessionDetails?: Record<string, any>;
 }
