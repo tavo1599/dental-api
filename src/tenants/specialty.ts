@@ -74,3 +74,49 @@ export function usesSessions(specialty: ClinicSpecialty | null | undefined): boo
   const rubro = specialty ?? ClinicSpecialty.DENTAL;
   return rubro === ClinicSpecialty.PSYCHOLOGY || rubro === ClinicSpecialty.AESTHETICS;
 }
+
+/**
+ * Categorias de producto que ve cada rubro.
+ *
+ * El enum completo vive en inventory/entities/product.entity.ts; esto decide
+ * cuales se le ofrecen a cada consultorio. Un centro de estetica no deberia
+ * elegir entre "ortodoncia" y "restauracion".
+ *
+ * Se guardan como cadenas y no importando el enum para no crear una
+ * dependencia de tenants hacia inventory: este archivo lo usa medio sistema.
+ */
+export const CATEGORIES_BY_SPECIALTY: Record<ClinicSpecialty, string[]> = {
+  [ClinicSpecialty.DENTAL]: [
+    'ortodoncia',
+    'restauracion',
+    'anestesicos',
+    'higiene',
+    'descartables',
+    'instrumental',
+    'otros',
+  ],
+  [ClinicSpecialty.PSYCHOLOGY]: [
+    'material_evaluacion',
+    'material_terapeutico',
+    'papeleria',
+    'higiene',
+    'descartables',
+    'otros',
+  ],
+  [ClinicSpecialty.AESTHETICS]: [
+    'cosmeticos',
+    'inyectables',
+    'aparatologia',
+    'anestesicos',
+    'higiene',
+    'descartables',
+    'instrumental',
+    'otros',
+  ],
+};
+
+/** Categorias de un rubro, con dental como respaldo para clinicas antiguas. */
+export function categoriesFor(specialty: ClinicSpecialty | null | undefined): string[] {
+  return CATEGORIES_BY_SPECIALTY[specialty ?? ClinicSpecialty.DENTAL]
+    ?? CATEGORIES_BY_SPECIALTY[ClinicSpecialty.DENTAL];
+}

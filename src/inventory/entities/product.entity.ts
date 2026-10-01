@@ -11,14 +11,42 @@ import {
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { ProductStock } from './product-stock.entity';
 
+/**
+ * Categorias de producto de TODOS los rubros.
+ *
+ * Cada consultorio solo ve las suyas (ver CATEGORIES_BY_SPECIALTY en
+ * tenants/specialty.ts): un centro de estetica no deberia elegir entre
+ * "ortodoncia" y "restauracion", y hasta ahora todo le caia en "otros".
+ *
+ * Los valores existentes NO se tocan ni se renombran: hay productos
+ * guardados con ellos.
+ */
 export enum ProductCategory {
+  // --- Comunes a cualquier consultorio ---
   HYGIENE = 'higiene',
-  ORTHODONTIC = 'ortodoncia',
-  ANESTHETIC = 'anestesicos',
   DISPOSABLE = 'descartables',
-  RESTORATIVE = 'restauracion',
   INSTRUMENT = 'instrumental',
   OTHER = 'otros',
+
+  // --- Odontologia ---
+  ORTHODONTIC = 'ortodoncia',
+  RESTORATIVE = 'restauracion',
+
+  /** Tambien en estetica: anestesia topica para laser o rellenos. */
+  ANESTHETIC = 'anestesicos',
+
+  // --- Estetica y dermatologia ---
+  COSMETIC = 'cosmeticos',
+  INJECTABLE = 'inyectables',
+  /** Consumibles del equipo: puntas de laser, cabezales, geles conductores. */
+  DEVICE_SUPPLY = 'aparatologia',
+
+  // --- Psicologia ---
+  /** Pruebas y protocolos: se gastan hoja por hoja y muchas son con licencia. */
+  ASSESSMENT = 'material_evaluacion',
+  /** Juegos y material para terapia infantil. */
+  THERAPY_MATERIAL = 'material_terapeutico',
+  OFFICE = 'papeleria',
 }
 
 export enum ProductUnit {
