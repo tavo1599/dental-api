@@ -49,5 +49,15 @@ COPY --from=builder /app/dist ./dist
 # Exponemos el puerto
 EXPOSE 3000
 
-# Comando de inicio
-CMD ["node", "dist/main"]
+# --- ARRANQUE ---
+# Primero se aplican las migraciones pendientes, DESPUES se levanta la API.
+#
+# El && es deliberado: si una migracion falla, el contenedor no arranca, sale
+# con codigo 1 y Dokploy marca el despliegue como fallido dejando viva la
+# version anterior. Asi nunca queda codigo nuevo corriendo contra una base
+# vieja, que es lo que provocaba los errores 500 al desplegar.
+#
+# Se llama al CLI de TypeORM directamente y no con `npm run` porque esta etapa
+# solo copia node_modules y dist: aqui no hay package.json ni ts-node. Por eso
+# el datasource esta escrito con doble extension (.ts/.js) y apunta a dist.
+CMD ["sh", "-c", "node ./node_modules/typeorm/cli.js migration:run -d dist/data-source.js && node dist/main"]
