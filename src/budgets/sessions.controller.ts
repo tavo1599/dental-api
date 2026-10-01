@@ -13,15 +13,21 @@ import { SessionsService } from './sessions.service';
 import { BranchContextGuard } from '../auth/guards/branch-context.guard';
 import { CurrentBranch } from '../auth/decorators/current-branch.decorator';
 import { AuditedAction } from '../audit/decorators/audited-action.decorator';
+import { SpecialtyGuard } from '../auth/guards/specialty.guard';
+import { RequiresSpecialty } from '../auth/decorators/requires-specialty.decorator';
+import { ClinicSpecialty } from '../tenants/specialty';
 
 /**
  * Sesiones de los paquetes de un paciente.
  *
- * Sirve a cualquier rubro: psicologia y estetica son los que cobran por
- * sesiones casi siempre, pero una ortodoncia dental tambien se presta en
- * varias citas, asi que no se restringe por especialidad.
+ * Solo para los rubros que cobran por sesiones. En odontologia un tratamiento
+ * se cobra por pieza o por plan, no por sesion, asi que esto no aplica.
+ *
+ * Se restringe en el servidor y no solo escondiendo el boton: es la misma
+ * leccion que los permisos de systemSettings.
  */
-@UseGuards(AuthGuard('jwt'), BranchContextGuard)
+@UseGuards(AuthGuard('jwt'), BranchContextGuard, SpecialtyGuard)
+@RequiresSpecialty(ClinicSpecialty.PSYCHOLOGY, ClinicSpecialty.AESTHETICS)
 @Controller('sessions')
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}

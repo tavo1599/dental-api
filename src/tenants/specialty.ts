@@ -59,3 +59,18 @@ export function professionalLabel(
 ): string {
   return PROFESSIONAL_LABELS[specialty ?? ClinicSpecialty.DENTAL];
 }
+
+/**
+ * Si el rubro trabaja por sesiones.
+ *
+ * Psicologia y estetica venden paquetes ("10 sesiones de terapia") y necesitan
+ * saber por donde va cada paciente. Odontologia no: ahi un tratamiento se
+ * cobra por pieza o por plan, no por sesion, asi que el campo solo estorbaria.
+ *
+ * Dentro de los rubros que si lo usan sigue siendo opcional: mientras el
+ * servicio quede en 1 sesion no aparece nada.
+ */
+export function usesSessions(specialty: ClinicSpecialty | null | undefined): boolean {
+  const rubro = specialty ?? ClinicSpecialty.DENTAL;
+  return rubro === ClinicSpecialty.PSYCHOLOGY || rubro === ClinicSpecialty.AESTHETICS;
+}
