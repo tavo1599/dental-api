@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, UnauthorizedExcepti
 import { InjectRepository } from '@nestjs/typeorm';
 import { Tenant, TenantStatus } from '../tenants/entities/tenant.entity';
 import { Repository } from 'typeorm';
-import { AuthService } from '../auth/auth.service';
+import { AuthService, INITIAL_PASSWORD_TTL_DAYS } from '../auth/auth.service';
 import { RegisterAuthDto } from '../auth/dto/register-auth.dto';
 import { User } from '../users/entities/user.entity'; // Importa User
 import { Announcement } from '../announcements/entities/announcement.entity'; // Importa
@@ -92,8 +92,9 @@ async getSystemWideKpis() {
       tenant.nextPaymentDate = addOneMonth(hoy, hoy.getDate());
       await this.tenantRepository.save(tenant);
 
-      // Bienvenida al titular. Con catch a proposito: que no salga el correo
-      // no puede tumbar el alta de una clinica que ya esta creada.
+      // Bienvenida con el enlace para que el titular ponga SU contrasena.
+      // Con catch a proposito: que no salga el correo no puede tumbar el alta
+      // de una clinica que ya esta creada.
       await this.mailService
         .sendWelcome({
           clinicName: tenant.name,
@@ -101,6 +102,10 @@ async getSystemWideKpis() {
           to: newUser.email,
           plan: tenant.plan,
           nextPaymentDate: formatLongDate(tenant.nextPaymentDate),
+          passwordToken: await this.authService.createInitialPasswordToken(
+            newUser.id,
+          ),
+          linkValidDays: INITIAL_PASSWORD_TTL_DAYS,
         })
         .catch(() => undefined);
     }

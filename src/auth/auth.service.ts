@@ -22,6 +22,13 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ClinicSpecialty } from '../tenants/specialty';
 
+
+/**
+ * Dias que vale el enlace para establecer la contrasena de una clinica nueva.
+ * Mas largo que el de recuperar contrasena (una hora) porque aqui el titular
+ * puede tardar en revisar el correo.
+ */
+export const INITIAL_PASSWORD_TTL_DAYS = 7;
 @Injectable()
 export class AuthService {
   constructor(
@@ -72,7 +79,14 @@ export class AuthService {
     }
 
     const schema = await this.generateUniqueSchema(clinicName);
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Sin contrasena enviada, se genera una aleatoria que NADIE conoce: el
+    // titular recibe un enlace por correo y establece la suya. No se deja un
+    // valor previsible ni la cuenta sin contrasena.
+    const passwordInicial =
+      password && password.length >= 6
+        ? password
+        : crypto.randomBytes(24).toString('hex');
+    const hashedPassword = await bcrypt.hash(passwordInicial, 10);
 
     try {
       // Transaccion: si falla la creacion del User, el Tenant tampoco se persiste.
@@ -227,6 +241,37 @@ export class AuthService {
     }
     delete user.password_hash; 
     return user;
+  }
+
+  /**
+   * Enlace para que el titular de una clinica nueva establezca su contrasena.
+   *
+   * Usa el MISMO mecanismo que recuperar contrasena -token aleatorio, hasheado
+   * en la base, de un solo uso- pero con un plazo mas largo: una clinica recien
+   * dada de alta no mira el correo en la hora siguiente, y si el enlace caduca
+   * antes de que lo abra hay que volver a generarlo a mano.
+   *
+   * Devuelve el token EN CLARO para poder componer el enlace. Solo existe en
+   * memoria el tiempo de enviar el correo; en la base queda el hash.
+   */
+  async createInitialPasswordToken(userId: string): Promise<string> {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+
+    const caduca = new Date();
+    caduca.setDate(caduca.getDate() + INITIAL_PASSWORD_TTL_DAYS);
+    user.resetPasswordExpires = caduca;
+
+    await this.userRepository.save(user);
+    return rawToken;
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {

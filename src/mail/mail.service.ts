@@ -256,12 +256,12 @@ export class MailService implements OnModuleInit {
   /**
    * Bienvenida al dar de alta una clinica.
    *
-   * Es el primer correo que recibe un cliente, asi que dice tres cosas que va a
-   * necesitar: con que cuenta entra, hasta cuando esta pagado y a donde escribir.
-   * Sin esto, una clinica recien creada no recibia nada del sistema.
+   * Lleva el enlace para que el titular establezca SU contrasena: asi nadie del
+   * equipo llega a conocerla. Es un enlace de un solo uso y con caducidad, el
+   * mismo mecanismo que recuperar contrasena.
    *
-   * Devuelve true solo si salio: dar de alta la clinica NO debe fallar porque el
-   * correo no se pudo enviar, pero conviene saberlo en el registro.
+   * Devuelve true solo si salio: dar de alta la clinica NO debe fallar porque
+   * el correo no se pudo enviar, pero conviene saberlo en el registro.
    */
   async sendWelcome(datos: {
     clinicName: string;
@@ -269,11 +269,19 @@ export class MailService implements OnModuleInit {
     to: string;
     plan: string;
     nextPaymentDate: string;
+    /** Token en claro para componer el enlace de contrasena. */
+    passwordToken: string;
+    /** Dias que vale el enlace, para decirlo en el correo. */
+    linkValidDays: number;
   }): Promise<boolean> {
     if (!this.resend) {
       this.logger.warn(`Sin Resend configurado: no se dio la bienvenida a ${datos.to}.`);
       return false;
     }
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const enlace = `${frontendUrl}/reset-password?token=${datos.passwordToken}`;
+
     try {
       const { error } = await this.resend.emails.send({
         from: this.fromAddress(),
@@ -288,9 +296,27 @@ export class MailService implements OnModuleInit {
                 <h2 style="margin:0 0 16px;color:#0f172a;">Gracias por confiar en nosotros</h2>
                 <p style="color:#4b5563;line-height:1.7;">
                   Hola <strong>${datos.adminName}</strong>, la cuenta de
-                  <strong>${datos.clinicName}</strong> ya está activa. Desde hoy
-                  puedes gestionar pacientes, agenda, historias clínicas,
-                  presupuestos y cobros en un solo lugar.
+                  <strong>${datos.clinicName}</strong> ya está creada. Desde
+                  SonriAndes podrás gestionar pacientes, agenda, historias
+                  clínicas, presupuestos y cobros en un solo lugar.
+                </p>
+
+                <p style="color:#4b5563;line-height:1.7;">
+                  Para empezar, <strong>crea tu contraseña</strong>. Solo la
+                  conocerás tú: nosotros no la vemos ni la guardamos.
+                </p>
+
+                <div style="text-align:center;margin:28px 0;">
+                  <a href="${enlace}" style="background:#2563EB;color:#fff;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;display:inline-block;">
+                    Crear mi contraseña
+                  </a>
+                </div>
+
+                <p style="color:#6b7280;font-size:13px;line-height:1.6;">
+                  El enlace caduca en ${datos.linkValidDays} días y solo puede
+                  usarse una vez. Después entrarás con tu correo
+                  <strong>${datos.to}</strong> y la contraseña que acabas de
+                  establecer.
                 </p>
 
                 <div style="margin:24px 0;padding:16px;background:#f8fafc;border-radius:10px;">
@@ -299,16 +325,11 @@ export class MailService implements OnModuleInit {
                     Plan: <strong>${datos.plan}</strong><br>
                     Tu mes está cubierto hasta el <strong>${datos.nextPaymentDate}</strong>
                   </p>
-                  <p style="margin:10px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">
-                    La suscripción se renueva cada mes. Te avisaremos por correo
-                    unos días antes de cada vencimiento, así que no tienes que
-                    estar pendiente de la fecha.
-                  </p>
                 </div>
 
-                <p style="color:#4b5563;line-height:1.7;">
-                  Entra con el correo <strong>${datos.to}</strong> y la contraseña
-                  que definiste al registrarte.
+                <p style="color:#6b7280;font-size:13px;line-height:1.6;">
+                  Si el botón no funciona, copia este enlace en tu navegador:<br>
+                  <span style="color:#2563EB;word-break:break-all;">${enlace}</span>
                 </p>
 
                 <p style="color:#6b7280;font-size:13px;line-height:1.6;">

@@ -31,10 +31,19 @@ export class RegisterAuthDto {
   @IsNotEmpty()
   email: string;
 
+  /**
+   * OPCIONAL a proposito.
+   *
+   * Cuando el super admin da de alta una clinica no la manda: el titular
+   * recibe un enlace por correo y la establece el mismo. Asi nadie del equipo
+   * llega a conocer la contrasena de un cliente.
+   *
+   * Se mantiene aceptada para el registro publico, si algun dia se abre.
+   */
   @IsString()
-  @MinLength(6) // Buena práctica: exigir una contraseña mínima
-  @IsNotEmpty()
-  password: string;
+  @MinLength(6)
+  @IsOptional()
+  password?: string;
 
   @IsString()
   @IsOptional() // Significa que este campo puede no venir
