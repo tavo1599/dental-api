@@ -160,8 +160,22 @@ export class InventoryService {
         'Selecciona una sede para registrar el movimiento de inventario.',
       );
     }
-    if (Number(dto.quantity) <= 0) {
-      throw new BadRequestException('La cantidad debe ser mayor a cero.');
+    const esAjuste = dto.type === StockMovementType.ADJUSTMENT;
+    const esConteo = esAjuste && dto.countedQuantity !== undefined;
+
+    if (!esConteo) {
+      // Un ajuste PUEDE ser negativo: es como se corrige a la baja tras un
+      // conteo fisico. Exigir siempre un valor positivo hacia imposible
+      // registrar que hay menos de lo que dice el sistema.
+      const cantidad = Number(dto.quantity);
+      if (!Number.isFinite(cantidad) || cantidad === 0) {
+        throw new BadRequestException('Indica una cantidad distinta de cero.');
+      }
+      if (!esAjuste && cantidad < 0) {
+        throw new BadRequestException(
+          'La cantidad debe ser mayor a cero. Para corregir a la baja usa un ajuste por conteo.',
+        );
+      }
     }
 
     return this.dataSource.transaction(async (manager) => {
@@ -172,13 +186,27 @@ export class InventoryService {
         throw new NotFoundException('Producto no encontrado en esta clínica.');
       }
 
-      const signed = this.signedQuantity(dto.type, Number(dto.quantity));
       const stock = await this.lockStockRow(
         manager,
         product.id,
         branchId,
         tenantId,
       );
+
+      // En un conteo fisico la diferencia se calcula AQUI, con la fila ya
+      // bloqueada: entre que la pantalla leyo el stock y se guarda el ajuste,
+      // alguien puede haber vendido o consumido.
+      const signed = esConteo
+        ? Number(dto.countedQuantity) - Number(stock.quantity)
+        : this.signedQuantity(dto.type, Number(dto.quantity));
+
+      if (esConteo && signed === 0) {
+        return {
+          message: `El conteo coincide con el sistema: ${Number(stock.quantity)}. No se registró ningún ajuste.`,
+          balanceAfter: Number(stock.quantity),
+          adjusted: 0,
+        };
+      }
 
       const balanceAfter = Number(stock.quantity) + signed;
       if (balanceAfter < 0) {
@@ -195,7 +223,15 @@ export class InventoryService {
       const lot =
         signed > 0
           ? await this.addToLot(manager, product.id, branchId, tenantId, signed, dto)
-          : await this.consumeFefo(manager, product, branchId, Math.abs(signed));
+          : await this.consumeFefo(
+              manager,
+              product,
+              branchId,
+              Math.abs(signed),
+              // Un ajuste no puede quedar bloqueado por los lotes: es la via
+              // para corregir precisamente cuando no cuadran.
+              esAjuste,
+            );
 
       // Una compra actualiza el costo de referencia del producto.
       if (dto.type === StockMovementType.PURCHASE && Number(dto.unitCost) > 0) {
@@ -213,7 +249,16 @@ export class InventoryService {
         balanceAfter,
         referenceType: dto.referenceType ?? null,
         referenceId: dto.referenceId ?? null,
-        notes: dto.notes ?? null,
+        // En un conteo se deja constancia de lo que decia el sistema y de lo
+        // que se conto: dentro de un mes nadie recordara por que se ajusto.
+        notes: esConteo
+          ? [
+              `Conteo físico: sistema ${Number(stock.quantity) - signed}, contado ${Number(dto.countedQuantity)}`,
+              dto.notes?.trim(),
+            ]
+              .filter(Boolean)
+              .join('. ')
+          : (dto.notes ?? null),
         lot,
         user: { id: userId } as any,
       });
@@ -379,11 +424,22 @@ export class InventoryService {
    * puede repartirse entre varios lotes; se devuelve el primero que se toco,
    * que es el que queda enlazado al movimiento.
    */
+  /**
+   * Descarga una salida de los lotes que antes caducan (FEFO).
+   *
+   * `allowShortfall` sirve para los AJUSTES. Normalmente, que los lotes no
+   * cubran una salida es sintoma de que stock y lotes se desincronizaron y
+   * conviene abortar antes de descuadrar mas. Pero el ajuste por conteo es
+   * justo la herramienta para arreglar eso: si tambien se bloqueara, el
+   * mensaje de error ("revisa el inventario con un ajuste") seria imposible
+   * de seguir.
+   */
   async consumeFefo(
     manager: EntityManager,
     product: Product,
     branchId: string,
     quantity: number,
+    allowShortfall = false,
   ): Promise<ProductLot | null> {
     const lots = await manager
       .createQueryBuilder(ProductLot, 'l')
@@ -410,7 +466,7 @@ export class InventoryService {
       pendiente -= usar;
     }
 
-    if (pendiente > 0) {
+    if (pendiente > 0 && !allowShortfall) {
       // No deberia ocurrir: el saldo de ProductStock ya se valido antes. Si
       // pasa, es que stock y lotes se han desincronizado, y es mejor abortar
       // la transaccion que seguir descuadrando el inventario.
