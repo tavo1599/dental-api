@@ -93,6 +93,33 @@ export class Tenant {
   })
   specialty: ClinicSpecialty;
 
+  /**
+   * Como se ve la boleta impresa de esta clinica.
+   *
+   * Son opciones ACOTADAS a proposito: colocacion del logo, tamano de letra,
+   * color y papel. No hay posiciones libres ni se puede quitar informacion
+   * obligatoria, asi que una clinica no puede dejar su boleta inservible.
+   *
+   * Nulo = se ve como siempre. Los valores por defecto del frontend son
+   * exactamente el diseno actual, asi que a nadie le cambia nada hasta que
+   * decida tocarlo.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  receiptConfig: {
+    /** izquierda | derecha | centro | sin logo */
+    logoPosition?: 'left' | 'right' | 'center' | 'none';
+    fontSize?: 'small' | 'normal' | 'large';
+    /** Color de titulos y lineas. Hex.
+     */
+    accentColor?: string;
+    paperSize?: 'a4' | 'ticket80';
+    showAddress?: boolean;
+    showPhone?: boolean;
+    showEmail?: boolean;
+    /** Mensaje opcional al pie: "Gracias por su visita". */
+    footerNote?: string;
+  } | null;
+
   @Column({ name: 'isTest', type: 'boolean', default: false })
   isTest: boolean;
 

@@ -117,4 +117,13 @@ export class UpdateTenantDto {
   @ValidateNested()
   @Type(() => SystemSettingsDto)
   systemSettings?: SystemSettingsDto;
+
+  /**
+   * Estilo de la boleta impresa. Se valida como objeto y el frontend decide
+   * su forma, igual que websiteConfig: son opciones de presentacion, no datos
+   * de los que dependa nada.
+   */
+  @IsOptional()
+  @IsObject()
+  receiptConfig?: Record<string, any>;
 }
