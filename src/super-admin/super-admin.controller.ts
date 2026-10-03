@@ -111,6 +111,18 @@ export class SuperAdminController {
     return this.superAdminService.setSpecialty(id, specialty);
   }
 
+  /**
+   * Corrige las fechas de suscripcion. Mover la fecha de pago cambia cuando se
+   * le avisa a la clinica y cuando se desactiva, asi que no es solo cosmetico.
+   */
+  @Patch('tenants/:id/subscription-dates')
+  updateSubscriptionDates(
+    @Param('id') id: string,
+    @Body() dto: { subscriptionStartDate?: string; nextPaymentDate?: string },
+  ) {
+    return this.superAdminService.updateSubscriptionDates(id, dto ?? {});
+  }
+
   @Patch('tenants/:id/renew')
   renewSubscription(@Param('id') id: string) {
     return this.superAdminService.renewSubscription(id);

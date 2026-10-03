@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Tenant, TenantStatus } from '../tenants/entities/tenant.entity';
 import { Repository } from 'typeorm';
@@ -16,6 +16,8 @@ import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AdminTransferService } from '../users/admin-transfer.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { ClinicSpecialty, SPECIALTY_LABELS } from '../tenants/specialty';
+import { MailService } from '../mail/mail.service';
+import { formatLongDate } from '../common/billing-dates';
 import { addOneMonth, startOfDay, startOfToday } from '../common/billing-dates';
 
 @Injectable()
@@ -36,6 +38,7 @@ export class SuperAdminService {
     private readonly consentTemplateRepository: Repository<ConsentTemplate>,
     private readonly adminTransferService: AdminTransferService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly mailService: MailService,
   ) {}
 
   /**
@@ -88,6 +91,18 @@ async getSystemWideKpis() {
       tenant.billingDay = hoy.getDate();
       tenant.nextPaymentDate = addOneMonth(hoy, hoy.getDate());
       await this.tenantRepository.save(tenant);
+
+      // Bienvenida al titular. Con catch a proposito: que no salga el correo
+      // no puede tumbar el alta de una clinica que ya esta creada.
+      await this.mailService
+        .sendWelcome({
+          clinicName: tenant.name,
+          adminName: newUser.fullName,
+          to: newUser.email,
+          plan: tenant.plan,
+          nextPaymentDate: formatLongDate(tenant.nextPaymentDate),
+        })
+        .catch(() => undefined);
     }
     return newUser;
   }
@@ -236,6 +251,67 @@ async impersonate(userId: string) {
     tenant.maxUsers = dto.maxUsers;
 
     return this.tenantRepository.save(tenant);
+  }
+
+  /**
+   * Corrige las fechas de suscripcion de una clinica.
+   *
+   * Hace falta porque hasta ahora solo se ponian al crearla: si una clinica
+   * empezo antes de cargarla al sistema, o se pacto otra fecha de cobro, no
+   * habia forma de arreglarlo.
+   *
+   * Las dos fechas no pesan igual:
+   *
+   *   subscriptionStartDate  es informativa, desde cuando es cliente
+   *   nextPaymentDate        decide cuando se le avisa y cuando se desactiva
+   *
+   * Por eso al mover la fecha de pago se recalcula tambien el dia de cobro y se
+   * limpia el aviso ya enviado: si no, el recordatorio del ciclo anterior
+   * impediria avisar del nuevo.
+   */
+  async updateSubscriptionDates(
+    tenantId: string,
+    dto: { subscriptionStartDate?: string; nextPaymentDate?: string },
+  ) {
+    const tenant = await this.tenantRepository.findOneBy({ id: tenantId });
+    if (!tenant) {
+      throw new NotFoundException(`Clínica con ID "${tenantId}" no encontrada.`);
+    }
+
+    if (dto.subscriptionStartDate) {
+      tenant.subscriptionStartDate = startOfDay(dto.subscriptionStartDate);
+    }
+
+    if (dto.nextPaymentDate) {
+      const nueva = startOfDay(dto.nextPaymentDate);
+      const cambio =
+        !tenant.nextPaymentDate ||
+        startOfDay(tenant.nextPaymentDate).getTime() !== nueva.getTime();
+
+      tenant.nextPaymentDate = nueva;
+      // El dia de cobro pasa a ser el de la fecha nueva: si no, la siguiente
+      // renovacion volveria al dia antiguo y desharia el cambio.
+      tenant.billingDay = nueva.getDate();
+      if (cambio) tenant.lastPaymentNoticeAt = null;
+    }
+
+    if (
+      tenant.subscriptionStartDate &&
+      tenant.nextPaymentDate &&
+      startOfDay(tenant.nextPaymentDate) < startOfDay(tenant.subscriptionStartDate)
+    ) {
+      throw new BadRequestException(
+        'El próximo pago no puede ser anterior al inicio de la suscripción.',
+      );
+    }
+
+    await this.tenantRepository.save(tenant);
+    return {
+      message: `Fechas actualizadas para "${tenant.name}".`,
+      subscriptionStartDate: tenant.subscriptionStartDate,
+      nextPaymentDate: tenant.nextPaymentDate,
+      billingDay: tenant.billingDay,
+    };
   }
 
   /**

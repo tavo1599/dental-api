@@ -253,6 +253,85 @@ export class MailService implements OnModuleInit {
     );
   }
 
+  /**
+   * Bienvenida al dar de alta una clinica.
+   *
+   * Es el primer correo que recibe un cliente, asi que dice tres cosas que va a
+   * necesitar: con que cuenta entra, hasta cuando esta pagado y a donde escribir.
+   * Sin esto, una clinica recien creada no recibia nada del sistema.
+   *
+   * Devuelve true solo si salio: dar de alta la clinica NO debe fallar porque el
+   * correo no se pudo enviar, pero conviene saberlo en el registro.
+   */
+  async sendWelcome(datos: {
+    clinicName: string;
+    adminName: string;
+    to: string;
+    plan: string;
+    nextPaymentDate: string;
+  }): Promise<boolean> {
+    if (!this.resend) {
+      this.logger.warn(`Sin Resend configurado: no se dio la bienvenida a ${datos.to}.`);
+      return false;
+    }
+    try {
+      const { error } = await this.resend.emails.send({
+        from: this.fromAddress(),
+        to: [datos.to],
+        replyTo: 'dentalsoft9@gmail.com',
+        subject: `¡Bienvenido a SonriAndes, ${datos.clinicName}!`,
+        html: `
+          <div style="background-color:#f3f4f6;padding:40px 10px;font-family:sans-serif;">
+            <table align="center" width="100%" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;">
+              <tr><td style="height:6px;background:#2563EB;"></td></tr>
+              <tr><td style="padding:32px;">
+                <h2 style="margin:0 0 16px;color:#0f172a;">Gracias por confiar en nosotros</h2>
+                <p style="color:#4b5563;line-height:1.7;">
+                  Hola <strong>${datos.adminName}</strong>, la cuenta de
+                  <strong>${datos.clinicName}</strong> ya está activa. Desde hoy
+                  puedes gestionar pacientes, agenda, historias clínicas,
+                  presupuestos y cobros en un solo lugar.
+                </p>
+
+                <div style="margin:24px 0;padding:16px;background:#f8fafc;border-radius:10px;">
+                  <p style="margin:0 0 10px;color:#64748b;font-size:13px;">TU SUSCRIPCIÓN</p>
+                  <p style="margin:0;color:#0f172a;line-height:1.8;">
+                    Plan: <strong>${datos.plan}</strong><br>
+                    Tu mes está cubierto hasta el <strong>${datos.nextPaymentDate}</strong>
+                  </p>
+                  <p style="margin:10px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">
+                    La suscripción se renueva cada mes. Te avisaremos por correo
+                    unos días antes de cada vencimiento, así que no tienes que
+                    estar pendiente de la fecha.
+                  </p>
+                </div>
+
+                <p style="color:#4b5563;line-height:1.7;">
+                  Entra con el correo <strong>${datos.to}</strong> y la contraseña
+                  que definiste al registrarte.
+                </p>
+
+                <p style="color:#6b7280;font-size:13px;line-height:1.6;">
+                  Cualquier duda, responde a este correo o escríbenos a
+                  <a href="mailto:dentalsoft9@gmail.com" style="color:#0284c7;">dentalsoft9@gmail.com</a>.
+                  Estamos para ayudarte a sacarle provecho desde el primer día.
+                </p>
+              </td></tr>
+            </table>
+          </div>`,
+      });
+
+      if (error) {
+        this.logger.error(`Resend rechazó la bienvenida a ${datos.to}`, error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.logger.error(`Error enviando la bienvenida a ${datos.to}`, error);
+      return false;
+    }
+  }
+
   /** Lo que comparten los tres correos de cobro, para no repetir el HTML. */
   private async sendBillingEmail(
     to: string,
