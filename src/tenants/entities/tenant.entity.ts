@@ -96,28 +96,28 @@ export class Tenant {
   /**
    * Como se ve la boleta impresa de esta clinica.
    *
-   * Son opciones ACOTADAS a proposito: colocacion del logo, tamano de letra,
-   * color y papel. No hay posiciones libres ni se puede quitar informacion
-   * obligatoria, asi que una clinica no puede dejar su boleta inservible.
+   * CADA FORMATO guarda su propia configuracion. Una hoja A4 y un ticket de
+   * 80mm no se parecen: en A4 el logo a un lado y dos columnas funciona, y en
+   * un ticket todo va centrado y en una sola columna. Si compartieran ajustes,
+   * mover el logo en uno estropearia el otro.
    *
-   * Nulo = se ve como siempre. Los valores por defecto del frontend son
-   * exactamente el diseno actual, asi que a nadie le cambia nada hasta que
-   * decida tocarlo.
+   * Son opciones ACOTADAS: no hay posiciones libres ni se puede quitar
+   * informacion obligatoria, asi que una clinica no puede dejar su boleta
+   * inservible.
+   *
+   * Se tipa flojo a proposito, igual que websiteConfig: la forma exacta la
+   * decide el frontend, que es quien dibuja. El resolvedor de alla acepta
+   * tambien la forma antigua (plana, de un solo formato) para no perder lo que
+   * alguna clinica hubiera guardado antes.
+   *
+   * Nulo = se ve como siempre.
    */
   @Column({ type: 'jsonb', nullable: true })
   receiptConfig: {
-    /** izquierda | derecha | centro | sin logo */
-    logoPosition?: 'left' | 'right' | 'center' | 'none';
-    fontSize?: 'small' | 'normal' | 'large';
-    /** Color de titulos y lineas. Hex.
-     */
-    accentColor?: string;
-    paperSize?: 'a4' | 'ticket80';
-    showAddress?: boolean;
-    showPhone?: boolean;
-    showEmail?: boolean;
-    /** Mensaje opcional al pie: "Gracias por su visita". */
-    footerNote?: string;
+    /** Formato que se ofrece primero al imprimir: 'a4' | 'ticket80'. */
+    defaultFormat?: string;
+    a4?: Record<string, any>;
+    ticket80?: Record<string, any>;
   } | null;
 
   @Column({ name: 'isTest', type: 'boolean', default: false })
