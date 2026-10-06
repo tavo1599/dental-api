@@ -52,7 +52,7 @@ export class DashboardService {
 
     const monthlyPayments = await this.paymentRepository.find({
         where: { ...porSede, paymentDate: Between(monthStart, monthEnd) },
-        relations: ['budget', 'budget.items', 'budget.items.treatment', 'budget.doctor'],
+        relations: ['budget', 'budget.items', 'budget.items.treatment', 'budget.items.product', 'budget.doctor'],
     });
     const monthlyIncome = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
     const revenueByDoctor = monthlyPayments.reduce((acc, payment) => {
@@ -65,8 +65,11 @@ export class DashboardService {
     const topTreatments = monthlyPayments.reduce((acc, payment) => {
         payment.budget?.items.forEach(item => {
             // --- CORRECCIÓN CLAVE AQUÍ ---
-            // Usamos 'item.treatment?.name' para evitar el error si el tratamiento es nulo
-            const treatmentName = item.treatment?.name || 'Tratamiento Eliminado';
+            // Una linea puede ser un tratamiento o un producto que se le
+            // cobro al paciente. Si no es ninguno, el catalogo quedo sin esa
+            // entrada.
+            const treatmentName =
+              item.treatment?.name || item.product?.name || 'Tratamiento Eliminado';
             // --- FIN DE LA CORRECCIÓN ---
 
             if (!acc[treatmentName]) acc[treatmentName] = 0;

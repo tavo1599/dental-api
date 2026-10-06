@@ -13,6 +13,7 @@ import { TreatmentSessionLog } from './entities/treatment-session-log.entity';
 import { SessionsService } from './sessions.service';
 import { SessionsController } from './sessions.controller';
 import { InventoryModule } from '../inventory/inventory.module';
+import { Product } from '../inventory/entities/product.entity';
 
 @Module({
   imports: [
@@ -24,6 +25,8 @@ import { InventoryModule } from '../inventory/inventory.module';
       Tenant,
       Branch,
       TreatmentSessionLog,
+      // Para cobrar productos como linea del presupuesto.
+      Product,
     ]),
     PatientsModule, // <-- 2. Añádelo aquí
     // Para descontar los insumos que consume cada sesion.

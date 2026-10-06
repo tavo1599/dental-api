@@ -78,6 +78,7 @@ export class PaymentsService {
         'budget.tenant',
         'budget.items',
         'budget.items.treatment',
+        'budget.items.product',
       ],
     });
 

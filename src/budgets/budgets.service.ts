@@ -7,6 +7,7 @@ import { Budget, BudgetStatus } from './entities/budget.entity';
 import { BudgetItem } from './entities/budget-item.entity';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { Branch } from '../branches/entities/branch.entity';
+import { Product } from '../inventory/entities/product.entity';
 
 @Injectable()
 export class BudgetsService {
@@ -19,6 +20,8 @@ export class BudgetsService {
     private readonly treatmentRepository: Repository<Treatment>,
     @InjectRepository(BudgetItem)
     private readonly budgetItemRepository: Repository<BudgetItem>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
   ) {}
 
   async create(
@@ -77,12 +80,59 @@ export class BudgetsService {
     const budgetItems: BudgetItem[] = [];
 
     for (const itemDto of itemsDto) {
+      // Una linea es un tratamiento O un producto, nunca las dos cosas ni
+      // ninguna. Se avisa aqui en lugar de dejar que la rechace el CHECK de la
+      // base, que daria un error que no dice nada.
+      if (!!itemDto.treatmentId === !!itemDto.productId) {
+        throw new BadRequestException(
+          'Cada linea del presupuesto debe ser un tratamiento o un producto.',
+        );
+      }
+
+      const quantity = Math.max(1, Math.round(Number(itemDto.quantity)));
+
+      if (itemDto.productId) {
+        // Se busca dentro de la clinica: un id de otra clinica no existe aqui.
+        const product = await this.productRepository.findOneBy({
+          id: itemDto.productId,
+          tenant: { id: tenantId },
+        });
+        if (!product) {
+          throw new NotFoundException('Producto no encontrado.');
+        }
+        if (!product.isSellable) {
+          throw new BadRequestException(
+            `"${product.name}" no esta marcado como vendible, asi que no tiene precio de venta.`,
+          );
+        }
+
+        // Igual que con los tratamientos: se congela el precio del momento. Si
+        // no viene, se toma el del catalogo.
+        const price =
+          itemDto.priceAtTimeOfBudget !== undefined
+            ? Number(itemDto.priceAtTimeOfBudget)
+            : Number(product.salePrice);
+
+        itemsTotal += price * quantity;
+
+        budgetItems.push(
+          this.budgetItemRepository.create({
+            product,
+            treatment: null,
+            quantity,
+            priceAtTimeOfBudget: price,
+            // Un producto se entrega y ya: no se presta en sesiones.
+            sessionsTotal: 1,
+          }),
+        );
+        continue;
+      }
+
       const treatment = await this.treatmentRepository.findOneBy({ id: itemDto.treatmentId, tenant: { id: tenantId } });
       if (treatment) {
         // Usamos el precio enviado desde el frontend si existe (para congelar el precio), o el actual
         const price = itemDto.priceAtTimeOfBudget !== undefined ? Number(itemDto.priceAtTimeOfBudget) : Number(treatment.price);
-        const quantity = Number(itemDto.quantity);
-        
+
         itemsTotal += price * quantity;
 
         // Lo que indique el especialista para ESTE paciente. No se hereda de
@@ -92,6 +142,7 @@ export class BudgetsService {
 
         const newBudgetItem = this.budgetItemRepository.create({
           treatment,
+          product: null,
           quantity: quantity,
           priceAtTimeOfBudget: price,
           sessionsTotal,
@@ -145,7 +196,7 @@ export class BudgetsService {
 
     return this.budgetRepository.find({
       where: whereCondition,
-      relations: ['items', 'items.treatment', 'doctor'],
+      relations: ['items', 'items.treatment', 'items.product', 'doctor'],
       order: { creationDate: 'DESC' },
     });
   }
@@ -217,7 +268,7 @@ export class BudgetsService {
   async findOne(id: string, tenantId: string) {
     const budget = await this.budgetRepository.findOne({
       where: { id, tenant: { id: tenantId } },
-      relations: ['patient', 'tenant', 'items', 'items.treatment', 'doctor'],
+      relations: ['patient', 'tenant', 'items', 'items.treatment', 'items.product', 'doctor'],
     });
 
     if (!budget) {

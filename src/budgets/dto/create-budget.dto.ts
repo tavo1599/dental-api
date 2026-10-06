@@ -13,11 +13,21 @@ import {
   ValidateNested 
 } from 'class-validator';
 
-// DTO para los items individuales (Aparatología/Tratamientos)
+/**
+ * Una linea del presupuesto: un TRATAMIENTO del catalogo o un PRODUCTO del
+ * inventario. Los dos campos son opcionales por separado porque la linea es
+ * una cosa o la otra; que venga exactamente uno lo comprueba el servicio, que
+ * es quien puede dar un mensaje util.
+ */
 class BudgetItemDto {
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  treatmentId: string;
+  treatmentId?: string;
+
+  /** Producto que se le cobra al paciente (una crema, un kit, un alineador). */
+  @IsOptional()
+  @IsUUID()
+  productId?: string;
 
   @IsNumber()
   @Min(1)
