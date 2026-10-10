@@ -85,7 +85,11 @@ export class InventoryService {
       });
     }
 
-    const products = await qb.orderBy('p.name', 'ASC').getMany();
+    // Los favoritos primero: son los que se venden a diario en el mostrador.
+    const products = await qb
+      .orderBy('p."isFavorite"', 'DESC')
+      .addOrderBy('p.name', 'ASC')
+      .getMany();
     if (products.length === 0) return [];
 
     const stocks = await this.stockRepository.find({

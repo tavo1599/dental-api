@@ -115,6 +115,16 @@ export class Product {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   minStock: number;
 
+  /**
+   * A mano en el mostrador.
+   *
+   * Es de la CLINICA y no de cada usuario: quien atiende y quien administra
+   * deben tener los mismos productos arriba, y asi no hay que configurarlo
+   * usuario por usuario.
+   */
+  @Column({ type: 'boolean', default: false })
+  isFavorite: boolean;
+
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 

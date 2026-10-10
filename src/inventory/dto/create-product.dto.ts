@@ -50,6 +50,11 @@ export class CreateProductDto {
   @IsOptional()
   isConsumable?: boolean;
 
+  /** A mano en el mostrador de ventas. */
+  @IsBoolean()
+  @IsOptional()
+  isFavorite?: boolean;
+
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
