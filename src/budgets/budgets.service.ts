@@ -8,6 +8,8 @@ import { BudgetItem } from './entities/budget-item.entity';
 import { BudgetItemSupply } from './entities/budget-item-supply.entity';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { Branch } from '../branches/entities/branch.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { usesSessions } from '../tenants/specialty';
 import { Product } from '../inventory/entities/product.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { StockMovementType } from '../inventory/entities/stock-movement.entity';
@@ -88,6 +90,23 @@ export class BudgetsService {
 
     const patient = await this.patientRepository.findOneBy({ id: patientId, tenant: { id: tenantId } });
     if (!patient) throw new NotFoundException('Paciente no encontrado');
+
+    /*
+     * Los insumos por tratamiento son de ESTETICA y PSICOLOGIA.
+     *
+     * En odontologia no se ofrecen -ni la receta en el catalogo, ni el ajuste
+     * al presupuestar- asi que un presupuesto dental no toca el almacen por
+     * este concepto y se guarda igual que siempre. Lo que si descuenta en
+     * cualquier rubro es un PRODUCTO cobrado como linea, que es otra cosa.
+     *
+     * Se lee el rubro de la base y no del token: un token de hace dias puede
+     * traer el rubro anterior si el super admin lo cambio.
+     */
+    const clinica = await this.dataSource.getRepository(Tenant).findOne({
+      where: { id: tenantId },
+      select: { id: true, specialty: true },
+    });
+    const usaInsumos = usesSessions(clinica?.specialty);
 
     // 2. Calcular el total de los ITEMS (Tratamientos/Aparatología)
     let itemsTotal = 0;
@@ -179,11 +198,13 @@ export class BudgetsService {
          */
         const supplies: BudgetItemSupply[] = [];
         const vistos = new Set<string>();
-        const fuente = Array.isArray(itemDto.supplies)
-          ? itemDto.supplies
-          : (await this.suppliesService.findForTreatment(treatment.id, tenantId)).map(
-              (r: any) => ({ productId: r.product.id, quantity: Number(r.quantity) }),
-            );
+        const fuente = !usaInsumos
+          ? [] // en dental no hay insumos por tratamiento
+          : Array.isArray(itemDto.supplies)
+            ? itemDto.supplies
+            : (await this.suppliesService.findForTreatment(treatment.id, tenantId)).map(
+                (r: any) => ({ productId: r.product.id, quantity: Number(r.quantity) }),
+              );
 
         for (const linea of fuente) {
           if (vistos.has(linea.productId)) {
@@ -216,7 +237,9 @@ export class BudgetsService {
           sessionsTotal,
           supplies,
           // Decididos: a partir de aqui manda la linea, aunque no gaste nada.
-          suppliesResolved: true,
+          // En dental se deja sin marcar: la linea queda igual que antes de
+          // que esto existiera.
+          suppliesResolved: usaInsumos,
         });
         budgetItems.push(newBudgetItem);
       }
@@ -291,6 +314,7 @@ export class BudgetsService {
        */
       const avisos: string[] = [];
       for (const item of saved.items ?? []) {
+        if (!usaInsumos) break; // en dental no se descuenta nada por este concepto
         if (!item.treatment || Number(item.sessionsTotal) > 1) continue;
         const reporte = await this.suppliesService.consumeForTreatment(
           {
