@@ -8,6 +8,9 @@ import { Repository, In } from 'typeorm';
 import { Patient } from '../patients/entities/patient.entity';
 import { Appointment, AppointmentStatus } from '../appointments/entities/appointment.entity';
 import { Budget, BudgetStatus } from '../budgets/entities/budget.entity';
+import { BudgetItem } from '../budgets/entities/budget-item.entity';
+import { Branch } from '../branches/entities/branch.entity';
+import { Treatment } from '../treatments/entities/treatment.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 
@@ -45,6 +48,25 @@ export class DemoService {
     });
 
     if (!doctor) return 'Error: Primero crea un usuario Doctor en esta clínica.';
+
+    /*
+     * La sede es OBLIGATORIA en citas y presupuestos desde que se abrio el
+     * modulo de sucursales. Sin ella, sembrar datos fallaba con un error de la
+     * base y la herramienta quedaba inservible.
+     */
+    const manager = this.patientRepo.manager;
+    const branch = await manager.findOne(Branch, {
+      where: { tenant: { id: tenantId }, isMain: true },
+    });
+    if (!branch) {
+      return 'Error: la clínica no tiene sede principal. Créala antes de sembrar datos.';
+    }
+
+    // Para que los presupuestos lleven detalle y no un total sin explicacion.
+    const treatments = await manager.find(Treatment, {
+      where: { tenant: { id: tenantId } },
+      take: 20,
+    });
 
     this.logger.log(`Sembrando datos de prueba para: ${tenant.name}`);
 
@@ -93,20 +115,53 @@ export class DemoService {
         patient: faker.helpers.arrayElement(patients),
         doctor,
         tenant,
+        branch,
       }));
     }
 
     // 4. Crear Presupuestos para el Dashboard
     for (let i = 0; i < 15; i++) {
-      const amount = faker.number.int({ min: 200, max: 3500 });
+      /*
+       * El total se calcula DESDE las lineas, no al reves.
+       *
+       * Antes se sembraba un importe al azar y ningun item, asi que el
+       * presupuesto se imprimia sin detalle y su total no cuadraba con nada.
+       * Si la clinica aun no tiene catalogo de tratamientos, el importe va al
+       * costo base de un plan de ortodoncia, que si es una forma valida de
+       * presupuesto con total y sin lineas.
+       */
+      const elegidos = treatments.length
+        ? faker.helpers.arrayElements(treatments, Math.min(treatments.length, faker.number.int({ min: 1, max: 3 })))
+        : [];
+
+      const items = elegidos.map((t) =>
+        manager.create(BudgetItem, {
+          treatment: t,
+          product: null,
+          quantity: faker.number.int({ min: 1, max: 2 }),
+          priceAtTimeOfBudget: Number(t.price) || faker.number.int({ min: 80, max: 600 }),
+          sessionsTotal: 1,
+        }),
+      );
+
+      const itemsTotal = items.reduce(
+        (suma, it) => suma + Number(it.priceAtTimeOfBudget) * Number(it.quantity),
+        0,
+      );
+      const baseTreatmentCost = items.length ? 0 : faker.number.int({ min: 200, max: 3500 });
+      const amount = itemsTotal + baseTreatmentCost;
+
       await this.budgetRepo.save(this.budgetRepo.create({
         patient: faker.helpers.arrayElement(patients),
         doctor,
         tenant,
+        branch,
+        items,
         totalAmount: amount,
         finalAmount: amount,
+        baseTreatmentCost,
+        isOrthodontic: baseTreatmentCost > 0,
         status: BudgetStatus.APPROVED,
-        isOrthodontic: faker.datatype.boolean(),
         creationDate: faker.date.past(),
       }));
     }
@@ -120,38 +175,62 @@ export class DemoService {
    */
   async reset(tenantId: string) {
     this.logger.warn(`Iniciando limpieza profunda de la clínica: ${tenantId}`);
-    const criteria = { tenant: { id: tenantId } };
 
     try {
-      // 0. Borrado SQL Forzado para saltar restricciones de llaves foráneas en historiales
-      await this.patientRepo.query(`DELETE FROM medical_histories WHERE "patientId" IN (SELECT id FROM patients WHERE "tenantId" = $1)`, [tenantId]);
-      await this.patientRepo.query(`DELETE FROM odontopediatric_histories WHERE "patientId" IN (SELECT id FROM patients WHERE "tenantId" = $1)`, [tenantId]);
-      await this.patientRepo.query(`DELETE FROM orthodontic_histories WHERE "patientId" IN (SELECT id FROM patients WHERE "tenantId" = $1)`, [tenantId]);
+      // TODO en UNA transaccion. Antes iba por pasos sueltos, y si uno fallaba
+      // los anteriores ya estaban confirmados: la clinica se quedaba a medias
+      // -presupuestos sin sus lineas, con su total intacto- y esos
+      // presupuestos huerfanos se imprimian sin ningun detalle.
+      await this.patientRepo.manager.transaction(async (manager) => {
+        const pacientes = `SELECT id FROM patients WHERE "tenantId" = $1`;
 
-      // 1. Borramos Odontogramas
-      await this.surfaceRepo.delete(criteria);
-      await this.toothRepo.delete(criteria);
-      
-      // Usamos el manager para tablas que podrían no tener repo inyectado aquí
-      await this.patientRepo.manager.delete(ToothState, criteria);
-      await this.patientRepo.manager.delete(DentalBridge, criteria);
+        /*
+         * Los historiales se borran a mano porque su llave foranea es NO
+         * ACTION: no caen solos con el paciente. Son los unicos asi; el resto
+         * -odontograma, citas, presupuestos, sesiones, documentos- es CASCADE.
+         *
+         * Psicologia y estetica van en la lista: se anadieron al abrir el
+         * sistema a otros rubros y se habian quedado fuera, asi que resetear
+         * un consultorio de psicologia fallaba SIEMPRE al llegar a los
+         * pacientes, despues de haber borrado todo lo anterior.
+         */
+        const historiales = [
+          'medical_histories',
+          'odontopediatric_histories',
+          'orthodontic_histories',
+          'psychology_histories',
+          'aesthetic_histories',
+        ];
+        for (const tabla of historiales) {
+          await manager.query(
+            `DELETE FROM ${tabla} WHERE "patientId" IN (${pacientes})`,
+            [tenantId],
+          );
+        }
 
-      // 2. Borramos Citas
-      await this.apptRepo.delete(criteria);
+        // El odontograma no cuelga del paciente sino de la clinica, asi que no
+        // cae por cascada y hay que pedirlo.
+        await manager.delete(ToothSurfaceState, { tenant: { id: tenantId } });
+        await manager.delete(Tooth, { tenant: { id: tenantId } });
+        await manager.delete(ToothState, { tenant: { id: tenantId } });
+        await manager.delete(DentalBridge, { tenant: { id: tenantId } });
 
-      // 3. Borramos Presupuestos y sus Items de forma segura
-      const budgets = await this.budgetRepo.find({ where: criteria, relations: ['items'] });
-      for (const budget of budgets) {
-          if (budget.items && budget.items.length > 0) {
-              await this.budgetRepo.manager.remove(budget.items);
-          }
-      }
-      if (budgets.length > 0) {
-          await this.budgetRepo.remove(budgets);
-      }
+        await manager.delete(Appointment, { tenant: { id: tenantId } });
 
-      // 4. Finalmente, borramos a los Pacientes
-      await this.patientRepo.delete(criteria);
+        // Basta con borrar el presupuesto: sus lineas y sus pagos son CASCADE,
+        // y las sesiones cuelgan de las lineas. Borrarlas a mano antes era lo
+        // que dejaba presupuestos sin detalle cuando algo fallaba despues.
+        await manager.delete(Budget, { tenant: { id: tenantId } });
+
+        await manager.delete(Patient, { tenant: { id: tenantId } });
+
+        /*
+         * Las VENTAS no se borran. Su paciente queda en nulo -la llave es SET
+         * NULL- y pasan a figurar como publico general. Es deliberado: una
+         * venta cobrada es un apunte de caja, y borrarla descuadraria el
+         * cierre y el kardex del inventario, que no son datos de demostracion.
+         */
+      });
 
       return 'Limpieza completa. La clínica está como nueva.';
     } catch (error: any) {
