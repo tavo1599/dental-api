@@ -25,11 +25,19 @@ export class Patient {
   @Column()
   fullName: string;
 
-  @Column()
-  dni: string;
+  /**
+   * Opcional: en recepcion se agenda a quien llama con lo poco que da. Un DNI
+   * inventado es peor que ninguno, porque despues nadie sabe cual es el real.
+   *
+   * UNIQUE (dni, tenant) sigue en pie: Postgres trata cada NULL como distinto,
+   * asi que caben muchas fichas sin DNI y ninguno repetido.
+   */
+  @Column({ nullable: true })
+  dni: string | null;
 
-  @Column({ type: 'date' })
-  birthDate: Date;
+  /** Opcional, como el DNI: se completa cuando el paciente llega. */
+  @Column({ type: 'date', nullable: true })
+  birthDate: Date | null;
 
   @Column()
   phone: string;

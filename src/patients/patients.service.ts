@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from './entities/patient.entity';
@@ -33,8 +33,28 @@ export class PatientsService {
   ) {}
 
   async create(createPatientDto: CreatePatientDto, tenantId: string) {
+    // Un campo vacio que llega del formulario se guarda como NULL, no como "".
+    // Importa en el DNI: UNIQUE trata cada NULL como distinto, pero dos
+    // cadenas vacias chocarian y el segundo paciente sin DNI no se podria dar
+    // de alta.
+    const dni = createPatientDto.dni?.trim() || null;
+    const birthDate = (createPatientDto.birthDate as any) || null;
+
+    if (dni) {
+      const repetido = await this.patientRepository.findOne({
+        where: { dni, tenant: { id: tenantId } },
+      });
+      if (repetido) {
+        throw new BadRequestException(
+          `Ya hay un paciente con el DNI ${dni}: ${repetido.fullName}.`,
+        );
+      }
+    }
+
     const newPatient = this.patientRepository.create({
       ...createPatientDto,
+      dni,
+      birthDate,
       tenant: { id: tenantId },
     });
     const savedPatient = await this.patientRepository.save(newPatient);

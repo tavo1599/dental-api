@@ -8,13 +8,17 @@ export class CreatePatientDto {
   @MinLength(3)
   fullName: string;
 
+  /**
+   * DNI y fecha de nacimiento son OPCIONALES: recepcion da de alta con el
+   * nombre y un celular, y la ficha se completa cuando el paciente llega.
+   */
   @IsString()
-  @IsNotEmpty()
-  dni: string;
+  @IsOptional()
+  dni?: string;
 
   @IsDateString()
-  @IsNotEmpty()
-  birthDate: Date;
+  @IsOptional()
+  birthDate?: Date;
 
   @IsString()
   @IsNotEmpty()

@@ -113,7 +113,8 @@ export class DocumentsService {
     await browser.close();
 
     // C. Subir a R2
-    const fileName = `Consentimiento_Firmado_${patient.dni}_${new Date().getTime()}.pdf`;
+    // El DNI puede faltar: el nombre del archivo no debe acabar en 'undefined'.
+    const fileName = `Consentimiento_Firmado_${patient.dni || 'sin-dni'}_${new Date().getTime()}.pdf`;
     const cloudPath = `tenants/${tenantId}/patients/${patientId}/consents/${fileName}`;
 
     try {

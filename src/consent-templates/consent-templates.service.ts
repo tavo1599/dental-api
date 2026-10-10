@@ -92,7 +92,8 @@ export class ConsentTemplatesService {
     
     let content = template.content;
     content = content.replace(/{{patientName}}/g, patient.fullName);
-    content = content.replace(/{{patientDni}}/g, patient.dni);
+    // Sin DNI en la ficha se deja la linea en blanco para rellenarla a mano.
+    content = content.replace(/{{patientDni}}/g, patient.dni || '__________');
     content = content.replace(/{{clinicName}}/g, clinic.name);
     content = content.replace(/{{doctorName}}/g, doctor.fullName);
     content = content.replace(/{{currentDate}}/g, currentDate);
@@ -127,7 +128,7 @@ private getHtmlWrapper(title: string, content: string, clinic: any, logoDataUri:
           <div id="patient-signature-placeholder" style="border-bottom: 1px solid #333; height: 80px; margin-bottom: 8px;">
             </div>
           <p style="margin: 0; font-weight: bold;">${patient.fullName}</p>
-          <p style="margin: 0; font-size: 12px;">DNI: ${patient.dni}</p>
+          <p style="margin: 0; font-size: 12px;">DNI: ${patient.dni || '__________'}</p>
           <p style="margin-top: 4px;">Paciente o Apoderado</p>
         </div>
 
