@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { TreatmentSupply } from './entities/treatment-supply.entity';
 import { Product } from './entities/product.entity';
+import { BudgetItem } from '../budgets/entities/budget-item.entity';
 import { ProductStock } from './entities/product-stock.entity';
 import {
   StockMovement,
@@ -155,41 +156,65 @@ export class TreatmentSuppliesService {
   /**
    * Descuenta del stock lo que consume un tratamiento.
    *
-   * Se llama al registrar una sesion. Si el tratamiento no tiene receta no
-   * hace nada y devuelve una lista vacia.
+   * Que se gasta sale de DOS sitios, por ese orden:
+   *
+   *  1. los insumos de la LINEA del presupuesto, si el especialista ajusto
+   *     algo para este paciente
+   *  2. si no, la receta del catalogo del tratamiento
+   *
+   * `factor` multiplica las cantidades: sirve cuando la linea lleva varias
+   * unidades del mismo tratamiento y se consume de una vez.
+   *
+   * `manager` es para cuando el llamador ya esta dentro de una transaccion
+   * -crear un presupuesto lo esta-: asi el consumo se deshace con el resto si
+   * algo falla despues, en lugar de quedarse confirmado por su cuenta.
+   *
+   * NO corta cuando no alcanza: el tratamiento ya se presupuesto o ya se hizo,
+   * asi que se registra y se avisa. Bloquear aqui dejaria a la clinica sin
+   * poder trabajar por una caja de guantes.
    */
   async consumeForTreatment(
-    treatmentId: string,
-    tenantId: string,
-    branchId: string,
-    userId: string,
-    referencia: { type: string; id: string },
+    args: {
+      treatmentId: string;
+      budgetItemId?: string | null;
+      tenantId: string;
+      branchId: string;
+      userId: string;
+      referencia: { type: string; id: string };
+      factor?: number;
+    },
+    manager?: EntityManager,
   ): Promise<ConsumptionReport> {
-    const receta = await this.supplyRepository.find({
-      where: { treatment: { id: treatmentId }, tenant: { id: tenantId } },
-      relations: ['product'],
-    });
-    if (!receta.length) return { consumed: [], warning: null };
+    const factor = args.factor ?? 1;
 
-    const consumed = await this.dataSource.transaction(async (manager) => {
+    const correr = async (m: EntityManager): Promise<ConsumedSupply[]> => {
+      const lineas = await this.resolverInsumos(m, args);
       const salidas: ConsumedSupply[] = [];
-      for (const linea of receta) {
+      for (const linea of lineas) {
         if (!linea.product?.isActive) continue; // un insumo dado de baja se salta
+        const cantidad = Number(linea.quantity) * factor;
+        if (!(cantidad > 0)) continue;
         salidas.push(
           await this.moverStock(
-            manager,
+            m,
             linea.product,
-            Number(linea.quantity),
-            tenantId,
-            branchId,
-            userId,
-            referencia,
+            cantidad,
+            args.tenantId,
+            args.branchId,
+            args.userId,
+            args.referencia,
             'salida',
           ),
         );
       }
       return salidas;
-    });
+    };
+
+    const consumed = manager
+      ? await correr(manager)
+      : await this.dataSource.transaction(correr);
+
+    if (!consumed.length) return { consumed: [], warning: null };
 
     const negativos = consumed.filter((c) => c.wentNegative);
     return {
@@ -200,6 +225,41 @@ export class TreatmentSuppliesService {
             .join(', ')}. Revisa si falta registrar una compra.`
         : null,
     };
+  }
+
+  /**
+   * Que insumos gasta de verdad esta linea: los suyos si los tiene, y si no
+   * los de la receta del catalogo.
+   *
+   * Que una linea tenga insumos propios es la diferencia entre "no toque
+   * nada" y "para este paciente va esto", asi que una linea a la que le
+   * quitaron todos los insumos a mano no consume nada: no se cae de vuelta a
+   * la receta, que seria justo lo contrario de lo que pidio el especialista.
+   */
+  private async resolverInsumos(
+    manager: EntityManager,
+    args: { treatmentId: string; budgetItemId?: string | null; tenantId: string },
+  ): Promise<Array<{ product: Product; quantity: number }>> {
+    if (args.budgetItemId) {
+      const item = await manager.findOne(BudgetItem, {
+        where: { id: args.budgetItemId },
+        relations: ['supplies', 'supplies.product'],
+      });
+      // La MARCA es lo que decide, no si la lista viene vacia: una linea sin
+      // insumos y una linea que no guardo insumos son las dos cero filas.
+      if (item?.suppliesResolved) {
+        return (item.supplies ?? []).map((s) => ({
+          product: s.product,
+          quantity: Number(s.quantity),
+        }));
+      }
+    }
+
+    const receta = await manager.find(TreatmentSupply, {
+      where: { treatment: { id: args.treatmentId }, tenant: { id: args.tenantId } },
+      relations: ['product'],
+    });
+    return receta.map((r) => ({ product: r.product, quantity: Number(r.quantity) }));
   }
 
   /**

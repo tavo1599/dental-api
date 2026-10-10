@@ -4,6 +4,7 @@ import { BudgetsService } from './budgets.service';
 import { BudgetsController } from './budgets.controller';
 import { Budget } from './entities/budget.entity';
 import { BudgetItem } from './entities/budget-item.entity';
+import { BudgetItemSupply } from './entities/budget-item-supply.entity';
 import { Treatment } from '../treatments/entities/treatment.entity';
 import { User } from '../users/entities/user.entity';
 import { Branch } from '../branches/entities/branch.entity';
@@ -20,6 +21,7 @@ import { Product } from '../inventory/entities/product.entity';
     TypeOrmModule.forFeature([
       Budget, 
       BudgetItem, 
+      BudgetItemSupply,
       Treatment, 
       User,   
       Tenant,

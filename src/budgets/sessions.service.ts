@@ -172,13 +172,16 @@ export class SessionsService {
     // Se descuentan los insumos que consume el tratamiento. Si no tiene
     // receta no hace nada. No se bloquea si falta stock: la sesion ya se
     // hizo, asi que se registra y se avisa.
-    const consumo = await this.suppliesService.consumeForTreatment(
-      (item as any).treatment.id,
+    const consumo = await this.suppliesService.consumeForTreatment({
+      treatmentId: (item as any).treatment.id,
+      // Los insumos que el especialista ajusto para ESTE paciente mandan sobre
+      // la receta del catalogo.
+      budgetItemId: item.id,
       tenantId,
-      sede,
+      branchId: sede,
       userId,
-      { type: 'treatment_session', id: log.id },
-    );
+      referencia: { type: 'treatment_session', id: log.id },
+    });
 
     const total = hechas + 1;
     return {

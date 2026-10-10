@@ -19,6 +19,17 @@ import {
  * una cosa o la otra; que venga exactamente uno lo comprueba el servicio, que
  * es quien puede dar un mensaje util.
  */
+/** Un insumo que se gasta en una linea concreta del presupuesto. */
+class BudgetItemSupplyDto {
+  @IsUUID()
+  @IsNotEmpty()
+  productId: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  quantity: number;
+}
+
 class BudgetItemDto {
   @IsOptional()
   @IsUUID()
@@ -44,6 +55,18 @@ class BudgetItemDto {
   @IsInt()
   @Min(1)
   sessionsTotal?: number;
+
+  /**
+   * Lo que se va a gastar en esta linea.
+   *
+   * Si no viene, se usa la receta del catalogo del tratamiento. Si viene,
+   * manda esto y la receta no se toca: es un ajuste para ESTE paciente.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BudgetItemSupplyDto)
+  supplies?: BudgetItemSupplyDto[];
 }
 
 export class CreateBudgetDto {

@@ -1,7 +1,8 @@
 import { Treatment } from '../../treatments/entities/treatment.entity';
 import { Product } from '../../inventory/entities/product.entity';
-import { Check, Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Check, Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Budget } from './budget.entity';
+import { BudgetItemSupply } from './budget-item-supply.entity';
 
 /**
  * Una linea del presupuesto.
@@ -64,4 +65,26 @@ export class BudgetItem {
   @Index()
   @ManyToOne(() => Product, { eager: true, nullable: true, onDelete: 'RESTRICT' })
   product: Product | null;
+
+  /**
+   * Lo que se va a gastar en ESTE tratamiento para ESTE paciente.
+   *
+   * Vacio = se usa la receta del catalogo tal cual. Con filas = el
+   * especialista ajusto algo para este caso, y manda esto.
+   */
+  @OneToMany(() => BudgetItemSupply, (supply) => supply.budgetItem, {
+    cascade: true,
+  })
+  supplies: BudgetItemSupply[];
+
+  /**
+   * Si los insumos de esta linea ya estan decididos.
+   *
+   * Hace falta porque consultando la base no se distingue "no guardo insumos"
+   * de "guardo que no gasta nada": las dos cosas son cero filas. Con la marca
+   * puesta manda la linea, aunque este vacia; sin marca -lineas anteriores a
+   * esta funcion- se usa la receta del catalogo.
+   */
+  @Column({ type: 'boolean', default: false })
+  suppliesResolved: boolean;
 }

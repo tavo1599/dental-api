@@ -5,11 +5,13 @@ import { Patient } from '../patients/entities/patient.entity';
 import { Treatment } from '../treatments/entities/treatment.entity';
 import { Budget, BudgetStatus } from './entities/budget.entity';
 import { BudgetItem } from './entities/budget-item.entity';
+import { BudgetItemSupply } from './entities/budget-item-supply.entity';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { Branch } from '../branches/entities/branch.entity';
 import { Product } from '../inventory/entities/product.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { StockMovementType } from '../inventory/entities/stock-movement.entity';
+import { TreatmentSuppliesService } from '../inventory/treatment-supplies.service';
 
 @Injectable()
 export class BudgetsService {
@@ -27,6 +29,8 @@ export class BudgetsService {
     private readonly dataSource: DataSource,
     // Para que un producto cobrado en el presupuesto salga del stock.
     private readonly inventoryService: InventoryService,
+    // Para descontar los insumos que gasta cada tratamiento.
+    private readonly suppliesService: TreatmentSuppliesService,
   ) {}
 
   async create(
@@ -157,12 +161,62 @@ export class BudgetsService {
         // variable para fijarlo en el servicio.
         const sessionsTotal = Math.max(1, Number(itemDto.sessionsTotal ?? 1));
 
+        /*
+         * Insumos de ESTA linea. Si no vienen, se deja sin filas y al
+         * descontar se usa la receta del catalogo; si vienen, mandan ellos y
+         * la receta no se toca.
+         *
+         * Se valida que el producto sea de la clinica: un id de otra no
+         * existe aqui.
+         */
+        /*
+         * Insumos de ESTA linea.
+         *
+         * La linea guarda SIEMPRE lo que va a gastar: si el especialista no
+         * ajusto nada, se copia la receta del catalogo del momento. Asi queda
+         * registrado lo que se gasto de verdad aunque la receta cambie
+         * despues, y la pantalla puede mostrarlo sin tener que recomponerlo.
+         */
+        const supplies: BudgetItemSupply[] = [];
+        const vistos = new Set<string>();
+        const fuente = Array.isArray(itemDto.supplies)
+          ? itemDto.supplies
+          : (await this.suppliesService.findForTreatment(treatment.id, tenantId)).map(
+              (r: any) => ({ productId: r.product.id, quantity: Number(r.quantity) }),
+            );
+
+        for (const linea of fuente) {
+          if (vistos.has(linea.productId)) {
+            throw new BadRequestException(
+              'Hay un insumo repetido en un tratamiento. Suma las cantidades en una sola linea.',
+            );
+          }
+          vistos.add(linea.productId);
+
+          // Se busca dentro de la clinica: un id de otra no existe aqui.
+          const insumo = await this.productRepository.findOneBy({
+            id: linea.productId,
+            tenant: { id: tenantId },
+          });
+          if (!insumo) {
+            throw new NotFoundException('Insumo no encontrado.');
+          }
+          supplies.push({
+            product: insumo,
+            quantity: Number(linea.quantity),
+            tenant: { id: tenantId },
+          } as BudgetItemSupply);
+        }
+
         const newBudgetItem = this.budgetItemRepository.create({
           treatment,
           product: null,
           quantity: quantity,
           priceAtTimeOfBudget: price,
           sessionsTotal,
+          supplies,
+          // Decididos: a partir de aqui manda la linea, aunque no gaste nada.
+          suppliesResolved: true,
         });
         budgetItems.push(newBudgetItem);
       }
@@ -219,7 +273,46 @@ export class BudgetsService {
         });
       }
 
-      return saved;
+      /*
+       * INSUMOS DE LOS TRATAMIENTOS
+       *
+       * Se descuentan aqui los de las lineas de UNA sola sesion. Las de varias
+       * sesiones se descuentan sesion por sesion, al registrarlas, que es
+       * cuando se gastan de verdad; hacerlo tambien aqui las contaria dos
+       * veces.
+       *
+       * Hasta ahora el unico momento en que se descontaban insumos era
+       * registrar una sesion, y las sesiones solo existen en psicologia y
+       * estetica con mas de una. Resultado: en una clinica dental la receta no
+       * descontaba NUNCA nada, y era pura decoracion.
+       *
+       * No corta si no alcanza: se avisa. Bloquear un presupuesto por una caja
+       * de guantes dejaria a la clinica sin poder trabajar.
+       */
+      const avisos: string[] = [];
+      for (const item of saved.items ?? []) {
+        if (!item.treatment || Number(item.sessionsTotal) > 1) continue;
+        const reporte = await this.suppliesService.consumeForTreatment(
+          {
+            treatmentId: item.treatment.id,
+            budgetItemId: item.id,
+            tenantId,
+            branchId,
+            userId: actorId,
+            referencia: { type: 'budget', id: saved.id },
+            // Dos veces el mismo tratamiento gasta el doble de insumos.
+            factor: Number(item.quantity) || 1,
+          },
+          manager,
+        );
+        if (reporte.warning) avisos.push(reporte.warning);
+      }
+
+      // Se devuelve pegado al presupuesto para que la interfaz lo muestre sin
+      // tener que preguntar por separado.
+      return Object.assign(saved, {
+        stockWarning: avisos.length ? avisos.join(' ') : null,
+      });
     });
   }
 
@@ -234,7 +327,7 @@ export class BudgetsService {
 
     return this.budgetRepository.find({
       where: whereCondition,
-      relations: ['items', 'items.treatment', 'items.product', 'doctor'],
+      relations: ['items', 'items.treatment', 'items.product', 'items.supplies', 'items.supplies.product', 'doctor'],
       order: { creationDate: 'DESC' },
     });
   }
@@ -317,7 +410,7 @@ export class BudgetsService {
   async findOne(id: string, tenantId: string) {
     const budget = await this.budgetRepository.findOne({
       where: { id, tenant: { id: tenantId } },
-      relations: ['patient', 'tenant', 'items', 'items.treatment', 'items.product', 'doctor'],
+      relations: ['patient', 'tenant', 'items', 'items.treatment', 'items.product', 'items.supplies', 'items.supplies.product', 'doctor'],
     });
 
     if (!budget) {
