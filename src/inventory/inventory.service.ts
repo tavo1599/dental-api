@@ -494,6 +494,223 @@ export class InventoryService {
    * El bloqueo es lo que evita que dos ventas simultaneas del mismo producto
    * lean el mismo saldo y dejen el stock descuadrado.
    */
+  /**
+   * Saca stock por algo que lo consume desde fuera del modulo: una venta o un
+   * presupuesto con productos.
+   *
+   * Vive aqui y no en cada modulo para que el bloqueo de fila, el reparto FEFO
+   * y el apunte del kardex sean LOS MISMOS en todos los casos. Cuando esto
+   * estaba copiado en ventas, cualquier arreglo habia que hacerlo dos veces.
+   *
+   * Tiene que ir dentro de una transaccion del llamador: si lo que origina la
+   * salida falla, el stock no debe haberse movido.
+   */
+  async registerExit(
+    manager: EntityManager,
+    args: {
+      product: Product;
+      branchId: string;
+      tenantId: string;
+      quantity: number;
+      userId: string;
+      type: StockMovementType;
+      referenceType: string;
+      referenceId: string;
+    },
+  ): Promise<void> {
+    const { product, branchId, tenantId, quantity, userId } = args;
+    if (!(quantity > 0)) {
+      throw new BadRequestException(
+        `La cantidad de "${product.name}" debe ser mayor a cero.`,
+      );
+    }
+
+    const stock = await this.lockStockRow(
+      manager,
+      product.id,
+      branchId,
+      tenantId,
+    );
+
+    const balanceAfter = Number(stock.quantity) - quantity;
+    if (balanceAfter < 0) {
+      throw new BadRequestException(
+        `Stock insuficiente de "${product.name}" en esta sede. ` +
+          `Disponible: ${Number(stock.quantity)}, solicitado: ${quantity}.`,
+      );
+    }
+
+    stock.quantity = balanceAfter;
+    await manager.save(stock);
+
+    // Sale primero lo que antes caduca.
+    const lot = await this.consumeFefo(manager, product, branchId, quantity);
+
+    await manager.save(
+      manager.create(StockMovement, {
+        product: { id: product.id } as Product,
+        branch: { id: branchId } as Branch,
+        tenant: { id: tenantId } as Tenant,
+        type: args.type,
+        quantity: -quantity,
+        unitCost: product.cost ?? 0,
+        balanceAfter,
+        referenceType: args.referenceType,
+        referenceId: args.referenceId,
+        lot,
+        user: { id: userId } as any,
+      }),
+    );
+  }
+
+  /**
+   * Devuelve al stock todo lo que salio por una referencia: una venta que se
+   * anula, un presupuesto que se borra.
+   *
+   * No se calcula la devolucion a mano: se LEE del kardex lo que realmente
+   * salio y se revierte movimiento por movimiento. Asi la devolucion coincide
+   * siempre con la salida, aunque la cantidad o el precio hayan cambiado
+   * despues en el catalogo.
+   *
+   * Es idempotente: si la suma de los movimientos de esa referencia ya es
+   * cero, lo devuelto estaba devuelto y no hace nada. De ese modo un doble
+   * clic o un reintento no duplican existencias.
+   *
+   * Los movimientos originales NO se borran ni se editan: el kardex es un
+   * libro, y una devolucion es un apunte nuevo.
+   */
+  async reverseExits(
+    manager: EntityManager,
+    args: {
+      referenceType: string;
+      referenceId: string;
+      tenantId: string;
+      userId: string;
+    },
+  ): Promise<number> {
+    const movimientos = await manager.find(StockMovement, {
+      where: {
+        referenceType: args.referenceType,
+        referenceId: args.referenceId,
+        tenant: { id: args.tenantId },
+      },
+      relations: ['product', 'branch', 'lot'],
+    });
+
+    if (!movimientos.length) return 0;
+
+    // El propio kardex dice si esto ya se devolvio.
+    const neto = movimientos.reduce((suma, m) => suma + Number(m.quantity), 0);
+    if (neto >= 0) return 0;
+
+    let devueltas = 0;
+    for (const m of movimientos) {
+      const salida = Number(m.quantity);
+      if (salida >= 0) continue; // las entradas no se revierten
+
+      const cantidad = Math.abs(salida);
+      const productId = (m.product as any)?.id;
+      const branchId = (m.branch as any)?.id;
+      if (!productId || !branchId) continue;
+
+      const stock = await this.lockStockRow(
+        manager,
+        productId,
+        branchId,
+        args.tenantId,
+      );
+      const balanceAfter = Number(stock.quantity) + cantidad;
+      stock.quantity = balanceAfter;
+      await manager.save(stock);
+
+      // Vuelve al MISMO lote del que salio, para no romper el control de
+      // vencimientos. Si la salida se repartio entre varios lotes, el
+      // movimiento solo guardo el primero y todo vuelve ahi: es una
+      // aproximacion conocida, y preferible a dejar los lotes descuadrados.
+      await this.returnToLot(
+        manager,
+        (m.lot as any)?.id ?? null,
+        productId,
+        branchId,
+        args.tenantId,
+        cantidad,
+      );
+
+      await manager.save(
+        manager.create(StockMovement, {
+          product: { id: productId } as Product,
+          branch: { id: branchId } as Branch,
+          tenant: { id: args.tenantId } as Tenant,
+          type: StockMovementType.RETURN,
+          quantity: cantidad,
+          unitCost: m.unitCost ?? 0,
+          balanceAfter,
+          referenceType: args.referenceType,
+          referenceId: args.referenceId,
+          lot: (m.lot as any) ?? null,
+          user: { id: args.userId } as any,
+        }),
+      );
+
+      devueltas += cantidad;
+    }
+
+    return devueltas;
+  }
+
+  /**
+   * Suma unidades a un lote concreto, o al lote sin numero ni vencimiento del
+   * producto si la salida no tenia lote.
+   */
+  private async returnToLot(
+    manager: EntityManager,
+    lotId: string | null,
+    productId: string,
+    branchId: string,
+    tenantId: string,
+    quantity: number,
+  ): Promise<void> {
+    if (lotId) {
+      const lote = await manager
+        .createQueryBuilder(ProductLot, 'l')
+        .setLock('pessimistic_write')
+        .where('l.id = :id', { id: lotId })
+        .getOne();
+      if (lote) {
+        lote.quantity = Number(lote.quantity) + quantity;
+        await manager.save(lote);
+        return;
+      }
+      // El lote ya no existe (se vacio y se limpio): cae al lote generico.
+    }
+
+    const generico = await manager
+      .createQueryBuilder(ProductLot, 'l')
+      .setLock('pessimistic_write')
+      .where('l."productId" = :productId', { productId })
+      .andWhere('l."branchId" = :branchId', { branchId })
+      .andWhere('l."lotNumber" IS NULL')
+      .andWhere('l."expiryDate" IS NULL')
+      .getOne();
+
+    if (generico) {
+      generico.quantity = Number(generico.quantity) + quantity;
+      await manager.save(generico);
+      return;
+    }
+
+    await manager.save(
+      manager.create(ProductLot, {
+        product: { id: productId } as Product,
+        branch: { id: branchId } as Branch,
+        tenant: { id: tenantId } as Tenant,
+        lotNumber: null,
+        expiryDate: null,
+        quantity,
+      }),
+    );
+  }
+
   private async lockStockRow(
     manager: EntityManager,
     productId: string,

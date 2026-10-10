@@ -249,9 +249,11 @@ export class SalesService {
   }
 
   /**
-   * Descuenta stock de la sede y deja el movimiento en el kardex. Reutiliza el
-   * mismo bloqueo de fila que el modulo de inventario para que dos ventas
-   * simultaneas del mismo producto no descuadren las existencias.
+   * Descuenta stock de la sede y deja el movimiento en el kardex.
+   *
+   * La mecanica (bloqueo de fila, reparto FEFO y apunte) vive en el modulo de
+   * inventario, que es quien manda sobre las existencias. Antes estaba copiada
+   * aqui, con lo que cualquier arreglo habia que hacerlo en dos sitios.
    */
   private async discountStock(
     manager: EntityManager,
@@ -262,57 +264,104 @@ export class SalesService {
     userId: string,
     saleId: string,
   ) {
-    let stock = await manager
-      .createQueryBuilder(ProductStock, 's')
-      .setLock('pessimistic_write')
-      .where('s."productId" = :productId', { productId: product.id })
-      .andWhere('s."branchId" = :branchId', { branchId })
-      .getOne();
-
-    if (!stock) {
-      stock = await manager.save(
-        manager.create(ProductStock, {
-          product: { id: product.id } as Product,
-          branch: { id: branchId } as Branch,
-          tenant: { id: tenantId } as Tenant,
-          quantity: 0,
-        }),
-      );
-    }
-
-    const balanceAfter = Number(stock.quantity) - quantity;
-    if (balanceAfter < 0) {
-      throw new BadRequestException(
-        `Stock insuficiente de "${product.name}" en esta sede. ` +
-          `Disponible: ${Number(stock.quantity)}, solicitado: ${quantity}.`,
-      );
-    }
-
-    stock.quantity = balanceAfter;
-    await manager.save(stock);
-
-    // Sale primero lo que antes caduca.
-    const lot = await this.inventoryService.consumeFefo(
-      manager,
+    await this.inventoryService.registerExit(manager, {
       product,
       branchId,
+      tenantId,
       quantity,
-    );
+      userId,
+      type: StockMovementType.SALE,
+      referenceType: 'sale',
+      referenceId: saleId,
+    });
+  }
 
-    await manager.save(
-      manager.create(StockMovement, {
-        product: { id: product.id } as Product,
-        branch: { id: branchId } as Branch,
-        tenant: { id: tenantId } as Tenant,
-        type: StockMovementType.SALE,
-        quantity: -quantity,
-        unitCost: product.cost ?? 0,
-        balanceAfter,
+  /**
+   * Anula una venta y devuelve el stock.
+   *
+   * La venta NO se borra: se marca anulada y queda en el listado. Borrarla se
+   * llevaria por delante el apunte de caja y los movimientos de inventario, y
+   * manana nadie sabria por que las existencias no cuadran. Lo que se deshace
+   * es el efecto: las unidades vuelven al stock y, si se habia cobrado, se
+   * registra la devolucion del dinero.
+   *
+   * La devolucion del dinero lleva la fecha de HOY, no la de la venta. Si
+   * llevara la original, anular una venta de la semana pasada cambiaria un
+   * cierre de caja ya cerrado; asi el dinero sale el dia que sale de verdad.
+   */
+  async cancel(
+    id: string,
+    tenantId: string,
+    branchId: string | null,
+    userId: string,
+    reason?: string,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const sale = await manager.findOne(Sale, {
+        where: {
+          id,
+          tenant: { id: tenantId },
+          ...(branchId ? { branch: { id: branchId } } : {}),
+        },
+        relations: ['items', 'items.product', 'branch'],
+      });
+      if (!sale) {
+        throw new NotFoundException('Venta no encontrada.');
+      }
+      if (sale.status === SaleStatus.CANCELLED) {
+        throw new BadRequestException('Esta venta ya esta anulada.');
+      }
+
+      // Lo que vuelve al stock se LEE del kardex, no se recalcula de la venta:
+      // asi la devolucion coincide con lo que de verdad salio.
+      const devueltas = await this.inventoryService.reverseExits(manager, {
         referenceType: 'sale',
-        referenceId: saleId,
-        lot,
-        user: { id: userId } as any,
-      }),
-    );
+        referenceId: sale.id,
+        tenantId,
+        userId,
+      });
+
+      // El dinero: se devuelve cada cobro con su mismo medio de pago, para que
+      // lo cobrado en efectivo salga del efectivo y no de la tarjeta.
+      const cobros = await manager.find(Payment, {
+        where: { sale: { id: sale.id }, tenant: { id: tenantId } },
+      });
+      const neto = cobros.reduce((suma, p) => suma + Number(p.amount), 0);
+      if (neto > 0) {
+        const hoy = new Date();
+        for (const cobro of cobros) {
+          const monto = Number(cobro.amount);
+          if (monto <= 0) continue;
+          await manager.save(
+            manager.create(Payment, {
+              amount: -monto,
+              paymentDate: hoy,
+              paymentMethod: cobro.paymentMethod,
+              notes: `Devolucion por anulacion de la venta N° ${sale.number}`,
+              budget: null,
+              sale: { id: sale.id } as Sale,
+              registeredBy: { id: userId } as any,
+              tenant: { id: tenantId } as Tenant,
+              branch: { id: (sale.branch as any).id } as Branch,
+            }),
+          );
+        }
+      }
+
+      sale.status = SaleStatus.CANCELLED;
+      const motivo = reason?.trim();
+      sale.notes = [sale.notes, motivo ? `ANULADA: ${motivo}` : 'ANULADA']
+        .filter(Boolean)
+        .join(' | ');
+      await manager.save(sale);
+
+      return {
+        id: sale.id,
+        number: sale.number,
+        status: sale.status,
+        unitsReturned: devueltas,
+        amountRefunded: neto > 0 ? Number(neto.toFixed(2)) : 0,
+      };
+    });
   }
 }

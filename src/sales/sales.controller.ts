@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -41,6 +42,29 @@ export class SalesController {
     @Query('to') to?: string,
   ) {
     return this.salesService.findAll(req.user.tenantId, branchId, { from, to });
+  }
+
+  /**
+   * Anula una venta y devuelve el stock.
+   *
+   * Es PATCH y no DELETE a proposito: la venta no se borra, se marca anulada y
+   * sigue en el listado. Borrarla se llevaria por delante el apunte de caja y
+   * los movimientos de inventario que la explican.
+   */
+  @Patch(':id/cancel')
+  cancel(
+    @Param('id') id: string,
+    @Body('reason') reason: string | undefined,
+    @Req() req,
+    @CurrentBranch() branchId: string | null,
+  ) {
+    return this.salesService.cancel(
+      id,
+      req.user.tenantId,
+      branchId,
+      req.user.id ?? req.user.sub,
+      reason,
+    );
   }
 
   @Get(':id')
