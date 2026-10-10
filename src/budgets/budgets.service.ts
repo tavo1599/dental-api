@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Patient } from '../patients/entities/patient.entity';
 import { Treatment } from '../treatments/entities/treatment.entity';
 import { Budget, BudgetStatus } from './entities/budget.entity';
@@ -8,6 +8,8 @@ import { BudgetItem } from './entities/budget-item.entity';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { Branch } from '../branches/entities/branch.entity';
 import { Product } from '../inventory/entities/product.entity';
+import { InventoryService } from '../inventory/inventory.service';
+import { StockMovementType } from '../inventory/entities/stock-movement.entity';
 
 @Injectable()
 export class BudgetsService {
@@ -22,6 +24,9 @@ export class BudgetsService {
     private readonly budgetItemRepository: Repository<BudgetItem>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    private readonly dataSource: DataSource,
+    // Para que un producto cobrado en el presupuesto salga del stock.
+    private readonly inventoryService: InventoryService,
   ) {}
 
   async create(
@@ -41,6 +46,11 @@ export class BudgetsService {
     
     // CORRECCIÓN: El token de seguridad guarda el ID de usuario en 'sub', no en 'id'.
     // Si el usuario es doctor, tomará su propio ID correctamente desde 'currentUser.sub'.
+    // Quien esta operando. Se guarda aparte porque assignedDoctorId puede
+    // acabar siendo OTRO usuario (el doctor al que se le asigna el plan), y en
+    // el kardex tiene que figurar quien saco el producto de verdad.
+    const actorId = currentUser.id || currentUser.sub;
+
     let assignedDoctorId = currentUser.id || currentUser.sub; 
 
     // --- NUEVA LÓGICA DE ROLES ---
@@ -78,6 +88,12 @@ export class BudgetsService {
     // 2. Calcular el total de los ITEMS (Tratamientos/Aparatología)
     let itemsTotal = 0;
     const budgetItems: BudgetItem[] = [];
+    /**
+     * Productos que hay que sacar del stock. Se anotan mientras se validan las
+     * lineas y se descuentan DESPUES de guardar el presupuesto, para que cada
+     * movimiento del kardex nazca apuntando a su presupuesto.
+     */
+    const salidasDeStock: { product: Product; quantity: number }[] = [];
 
     for (const itemDto of itemsDto) {
       // Una linea es un tratamiento O un producto, nunca las dos cosas ni
@@ -125,6 +141,7 @@ export class BudgetsService {
             sessionsTotal: 1,
           }),
         );
+        salidasDeStock.push({ product, quantity });
         continue;
       }
 
@@ -182,7 +199,28 @@ export class BudgetsService {
       monthlyPayment: Number(monthlyPayment),
     });
 
-    return this.budgetRepository.save(newBudget);
+    // Guardar y descontar van JUNTOS en una transaccion: si no hay stock
+    // suficiente de un producto, no debe quedar un presupuesto a medias que
+    // cobre algo que nunca salio del almacen.
+    return this.dataSource.transaction(async (manager) => {
+      const saved = await manager.save(newBudget);
+
+      for (const { product, quantity } of salidasDeStock) {
+        await this.inventoryService.registerExit(manager, {
+          product,
+          branchId,
+          tenantId,
+          quantity,
+          userId: actorId,
+          // Es una venta al paciente, aunque se cobre dentro del presupuesto.
+          type: StockMovementType.SALE,
+          referenceType: 'budget',
+          referenceId: saved.id,
+        });
+      }
+
+      return saved;
+    });
   }
 
   async findAllForPatient(patientId: string, tenantId: string, doctorId?: string) {
@@ -251,7 +289,7 @@ export class BudgetsService {
     return this.budgetRepository.save(budget);
   }
 
-  async remove(budgetId: string, tenantId: string) {
+  async remove(budgetId: string, tenantId: string, userId: string) {
     const budget = await this.budgetRepository.findOne({
       where: { id: budgetId, tenant: { id: tenantId } },
       relations: ['items'],
@@ -261,7 +299,18 @@ export class BudgetsService {
       throw new NotFoundException(`Budget with ID "${budgetId}" not found.`);
     }
 
-    await this.budgetRepository.remove(budget);
+    // Lo que salio del almacen por este presupuesto vuelve al stock. Se lee
+    // del kardex, asi que si no habia productos no hace nada, y si se llama
+    // dos veces no duplica existencias.
+    await this.dataSource.transaction(async (manager) => {
+      await this.inventoryService.reverseExits(manager, {
+        referenceType: 'budget',
+        referenceId: budgetId,
+        tenantId,
+        userId,
+      });
+      await manager.remove(budget);
+    });
     return;
   }
 

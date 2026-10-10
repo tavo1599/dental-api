@@ -77,6 +77,6 @@ export class BudgetsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @Req() req: any) {
     // Elimina un presupuesto asegurando que pertenece al tenant del usuario
-    return this.budgetsService.remove(id, req.user.tenantId);
+    return this.budgetsService.remove(id, req.user.tenantId, req.user.id ?? req.user.sub);
   }
 }
