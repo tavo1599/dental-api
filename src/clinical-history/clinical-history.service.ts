@@ -69,6 +69,48 @@ export class ClinicalHistoryService {
     return qb.getMany();
   }
 
+  /**
+   * Cuantos pacientes hay pendientes de contactar cada dia de un rango.
+   *
+   * Alimenta el contador que la agenda pinta junto al nombre del dia. Devuelve
+   * solo los dias que tienen algo, para no mandar un mes de ceros.
+   *
+   * Mismo criterio que findAllReminders: cuenta los planes que todavia hay que
+   * gestionar, no los que ya acabaron en cita.
+   */
+  async countPendingByDay(
+    tenantId: string,
+    from: string,
+    to: string,
+  ): Promise<Array<{ date: string; count: number }>> {
+    const filas = await this.historyRepository
+      .createQueryBuilder('entry')
+      .leftJoin('entry.plannedAppointment', 'cita')
+      .select('CAST(entry."nextAppointmentDate" AS date)', 'dia')
+      .addSelect('COUNT(*)', 'total')
+      .where('entry."tenantId" = :tenantId', { tenantId })
+      .andWhere('entry."nextAppointmentDate" IS NOT NULL')
+      .andWhere(
+        'CAST(entry."nextAppointmentDate" AS date) BETWEEN CAST(:desde AS date) AND CAST(:hasta AS date)',
+        { desde: from, hasta: to },
+      )
+      .andWhere('(cita.id IS NULL OR cita.status IN (:...descartadas))', {
+        descartadas: [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW],
+      })
+      .groupBy('CAST(entry."nextAppointmentDate" AS date)')
+      .getRawMany();
+
+    return filas.map((f) => ({
+      // Se devuelve YYYY-MM-DD a secas: es lo que necesita el calendario para
+      // casar el contador con su casilla, sin lios de zona horaria.
+      date:
+        f.dia instanceof Date
+          ? f.dia.toISOString().slice(0, 10)
+          : String(f.dia).slice(0, 10),
+      count: Number(f.total),
+    }));
+  }
+
   // --- MÉTODOS ORIGINALES ---
 
   async create(

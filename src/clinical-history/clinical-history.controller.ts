@@ -22,6 +22,27 @@ export class ClinicalHistoryController {
     return this.clinicalHistoryService.findAllReminders(req.user.tenantId, date);
   }
 
+  /**
+   * Cuantos pacientes quedan por contactar cada dia de un rango.
+   *
+   * La agenda lo usa para el contador que aparece junto al nombre del dia.
+   * Va ANTES de las rutas con parametro para que 'reminders/summary' no caiga
+   * en ninguna de ellas.
+   */
+  @Get('clinical-history/reminders/summary')
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_ADMIN, UserRole.DENTIST, UserRole.ASSISTANT)
+  countPendingByDay(
+    @Req() req,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.clinicalHistoryService.countPendingByDay(
+      req.user.tenantId,
+      from,
+      to,
+    );
+  }
+
   // --- RUTAS ORIGINALES (Compatibilidad con tu sistema actual) ---
 
   // URL: /patients/:patientId/history (POST)
