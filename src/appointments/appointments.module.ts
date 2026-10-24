@@ -15,5 +15,8 @@ import { Branch } from '../branches/entities/branch.entity';
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],
+  // La historia clinica lo usa para agendar la proxima cita en el momento,
+  // reutilizando su control de cruces en lugar de duplicarlo.
+  exports: [AppointmentsService],
 })
 export class AppointmentsModule {}

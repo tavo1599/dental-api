@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, IsObject, IsBoolean, ValidateNested, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsObject, IsBoolean, ValidateNested, IsArray, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -35,6 +35,17 @@ export class SystemSettingsDto {
   @IsOptional() @IsBoolean() assistantsCanSeeReports?: boolean;
   @IsOptional() @IsBoolean() assistantsCanManageTreatments?: boolean;
   @IsOptional() @IsBoolean() assistantsCanSeeDashboardStats?: boolean;
+
+  /**
+   * Que hace la clinica con la fecha de "proxima cita" de la historia:
+   * 'remind' deja solo el recordatorio, 'schedule' la agenda en el momento.
+   *
+   * Declarado aqui para que la base solo pueda recibir uno de los dos
+   * valores. Hoy el ValidationPipe no filtra por whitelist, asi que sin esto
+   * tambien se guardaria, pero entraria cualquier texto; y si algun dia se
+   * activa el filtro, la llave seguiria pasando.
+   */
+  @IsOptional() @IsIn(['remind', 'schedule']) nextAppointmentMode?: 'remind' | 'schedule';
 }
 
 /**

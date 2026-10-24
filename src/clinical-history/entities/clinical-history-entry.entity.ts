@@ -1,4 +1,5 @@
 import { Patient } from '../../patients/entities/patient.entity';
+import { Appointment } from '../../appointments/entities/appointment.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
@@ -34,6 +35,19 @@ export class ClinicalHistoryEntry {
 
   @Column({ type: 'timestamp', nullable: true, comment: 'Fecha sugerida para la próxima cita' })
   nextAppointmentDate?: Date;
+
+  /**
+   * La cita de la agenda que salio de este plan, si la clinica decidio
+   * agendarla en el momento en vez de solo dejar el recordatorio.
+   *
+   * Nulo = es solo un recordatorio: alguien tiene que llamar al paciente para
+   * acordar la hora. El asistente avisa de estos.
+   *
+   * La fecha de arriba NO se reescribe cuando la cita se mueve: la historia
+   * guarda lo que se decidio ese dia, y el estado real se lee de la cita.
+   */
+  @ManyToOne(() => Appointment, { nullable: true, onDelete: 'SET NULL' })
+  plannedAppointment?: Appointment | null;
 
   // --- CORRECCIÓN AQUÍ ---
   /**

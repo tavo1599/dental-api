@@ -78,6 +78,19 @@ export class Tenant {
     // Catálogo de Tratamientos (Configuración de precios base)
     dentistsCanManageTreatments?: boolean;
     assistantsCanManageTreatments?: boolean;
+
+    /**
+     * Que hace la clinica con la fecha de "proxima cita" de la historia.
+     *
+     *   'remind'   -> solo recordatorio: alguien llamara al paciente para
+     *                 acordar la hora. Es el comportamiento de siempre.
+     *   'schedule' -> se agenda en el momento, con hora y doctor.
+     *
+     * Es solo el valor POR DEFECTO de la pantalla: en cada atencion se puede
+     * elegir lo otro, porque dentro de una misma clinica hay pacientes que
+     * estan delante y pacientes a los que hay que llamar.
+     */
+    nextAppointmentMode?: 'remind' | 'schedule';
   };
 
   /**
