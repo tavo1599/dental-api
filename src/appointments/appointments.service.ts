@@ -5,7 +5,7 @@ import { Appointment, AppointmentStatus } from './entities/appointment.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Branch } from '../branches/entities/branch.entity';
 import { Patient } from '../patients/entities/patient.entity';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { UpdateAppointmentTimeDto } from './dto/update-appointment-time.dto';
 import { parseClinicDateTime } from '../common/clinic-time';
@@ -21,6 +21,46 @@ export class AppointmentsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
+
+  /**
+   * Lo que ya tiene ocupado un doctor ese dia.
+   *
+   * Sirve para avisar ANTES de guardar: la pantalla puede decir "esa hora esta
+   * ocupada" y proponer la siguiente libre, en lugar de dejar escribir todo y
+   * soltar el error al final.
+   *
+   * No sustituye al control de cruces de create(): ahi sigue estando la
+   * palabra final, porque entre que se consulta y se guarda puede entrar otra
+   * cita. Esto es para avisar a tiempo, no para autorizar.
+   *
+   * A proposito SIN filtrar por sede, igual que el control de cruces: un
+   * doctor no puede estar en dos sucursales a la vez.
+   */
+  async findDoctorDayBusy(
+    tenantId: string,
+    doctorId: string,
+    date: string,
+  ): Promise<Array<{ start: string; end: string; patientName: string }>> {
+    const desde = parseClinicDateTime(`${date}T00:00:00`, 'fecha');
+    const hasta = parseClinicDateTime(`${date}T23:59:59`, 'fecha');
+
+    const citas = await this.appointmentRepository.find({
+      where: {
+        doctor: { id: doctorId },
+        tenant: { id: tenantId },
+        status: Not(In([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW])),
+        startTime: Between(desde, hasta),
+      },
+      relations: ['patient'],
+      order: { startTime: 'ASC' },
+    });
+
+    return citas.map((c) => ({
+      start: c.startTime.toISOString(),
+      end: c.endTime.toISOString(),
+      patientName: (c as any).patient?.fullName ?? 'Paciente',
+    }));
+  }
 
   async create(
     createDto: CreateAppointmentDto,
@@ -65,6 +105,24 @@ export class AppointmentsService {
     
     const doctor = await this.userRepository.findOneBy({ id: doctorId, tenant: { id: tenantId } });
     if (!doctor) throw new UnauthorizedException('El doctor seleccionado no es válido para esta clínica.');
+
+    /*
+     * Y tiene que ser alguien que ATIENDE.
+     *
+     * Hasta ahora bastaba con pertenecer a la clinica, asi que una cita podia
+     * quedar a nombre de un asistente o de un admin de sede. Eso no solo sale
+     * raro en la agenda: el control de cruces de abajo se hace contra el
+     * doctor de la cita, asi que una cita a nombre de quien no atiende NO
+     * choca con las del doctor de verdad, y se acaban pisando.
+     *
+     * El conjunto es el mismo que ofrece el selector de doctores: dentistas y
+     * el titular, que en muchas clinicas tambien atiende.
+     */
+    if (![UserRole.DENTIST, UserRole.ADMIN].includes(doctor.role)) {
+      throw new BadRequestException(
+        `${doctor.fullName} no atiende pacientes, así que no se le pueden asignar citas.`,
+      );
+    }
 
     const newAppointment = this.appointmentRepository.create({
       startTime,

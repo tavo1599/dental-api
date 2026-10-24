@@ -52,6 +52,25 @@ export class AppointmentsController {
     });
   }
 
+  /**
+   * Horas ya ocupadas de un doctor en un dia.
+   *
+   * La usa el formulario de la historia clinica para avisar antes de guardar
+   * que la hora esta tomada y proponer la siguiente libre.
+   */
+  @Get('availability')
+  findAvailability(
+    @Req() req,
+    @Query('doctorId') doctorId: string,
+    @Query('date') date: string,
+  ) {
+    return this.appointmentsService.findDoctorDayBusy(
+      req.user.tenantId,
+      doctorId,
+      date,
+    );
+  }
+
   @Patch(':id/status')
   updateStatus(
     @Param('id') id: string,

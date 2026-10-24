@@ -7,12 +7,13 @@ import { PatientsModule } from '../patients/patients.module'; // <-- 1. Importa 
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { Branch } from '../branches/entities/branch.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
     // Branch lo necesita BranchContextGuard, que ahora protege las rutas que
     // pueden agendar: una cita siempre ocurre en una sede concreta.
-    TypeOrmModule.forFeature([ClinicalHistoryEntry, Appointment, Branch]),
+    TypeOrmModule.forFeature([ClinicalHistoryEntry, Appointment, Branch, User]),
     forwardRef(() => PatientsModule), // <-- 2. Añade el módulo aquí
     AppointmentsModule,
   ],

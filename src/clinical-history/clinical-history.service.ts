@@ -11,6 +11,7 @@ import { ClinicalHistoryEntry } from './entities/clinical-history-entry.entity';
 import { CreateClinicalHistoryEntryDto } from './dto/create-clinical-history-entry.dto';
 import { PatientsService } from '../patients/patients.service'; 
 import { AppointmentsService } from '../appointments/appointments.service';
+import { User, UserRole } from '../users/entities/user.entity';
 import {
   Appointment,
   AppointmentStatus,
@@ -25,6 +26,8 @@ export class ClinicalHistoryService {
     private readonly patientsService: PatientsService,
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     // Para agendar la proxima cita reutilizando su control de cruces, en
     // lugar de duplicar esa validacion aqui.
     private readonly appointmentsService: AppointmentsService,
@@ -187,6 +190,25 @@ export class ClinicalHistoryService {
       ':' +
       String(fin.getUTCMinutes()).padStart(2, '0');
 
+    /*
+     * Quien atiende. Si no se indica, el que firma la atencion de hoy, pero
+     * SOLO si atiende pacientes: una entrada la puede escribir un admin de
+     * sede, y una cita a su nombre no chocaria con las del doctor de verdad.
+     */
+    const doctorId = dto.nextAppointmentDoctorId ?? userId;
+    const quienAtiende = await this.userRepository.findOneBy({
+      id: doctorId,
+      tenant: { id: tenantId },
+    });
+    if (!quienAtiende) {
+      throw new BadRequestException('El doctor indicado no es de esta clínica.');
+    }
+    if (![UserRole.DENTIST, UserRole.ADMIN].includes(quienAtiende.role)) {
+      throw new BadRequestException(
+        'Indica con qué doctor queda la próxima cita: tu usuario no atiende pacientes.',
+      );
+    }
+
     // Sin zona en el texto: el servicio de citas lo entiende como hora de la
     // clinica, igual que cuando se agenda desde el calendario.
     const cita = await this.appointmentsService.create(
@@ -194,8 +216,7 @@ export class ClinicalHistoryService {
         startTime: `${dia}T${dto.nextAppointmentTime}:00` as any,
         endTime: `${dia}T${horaFin}:00` as any,
         patientId,
-        // Si no se indica otro, atiende quien firma la atencion de hoy.
-        doctorId: dto.nextAppointmentDoctorId ?? userId,
+        doctorId,
         notes: dto.nextAppointmentPlan || undefined,
       },
       tenantId,
