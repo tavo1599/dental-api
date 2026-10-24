@@ -26,6 +26,18 @@ export class DashboardController {
     return this.dashboardService.getSummary(req.user.tenantId, branchId, req.user);
   }
 
+  /**
+   * Indicadores sobre los que se puede actuar.
+   *
+   * Sin @RequiresSetting: lo operativo -ausencias, pacientes por contactar,
+   * avisos de almacen- lo necesita todo el mundo. El servicio recorta lo
+   * economico segun el permiso.
+   */
+  @Get('insights')
+  getInsights(@Req() req, @CurrentBranch() branchId: string | null) {
+    return this.dashboardService.getInsights(req.user.tenantId, branchId, req.user);
+  }
+
   /** Solo cifras: aqui si se corta el acceso entero. */
   @Get('monthly-revenue')
   @RequiresSetting('CanSeeDashboardStats')

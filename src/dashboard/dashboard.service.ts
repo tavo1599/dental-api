@@ -120,6 +120,195 @@ export class DashboardService {
     };
   }
 
+  /**
+   * ============================================================================
+   * INDICADORES SOBRE LOS QUE SE PUEDE ACTUAR
+   *
+   * Va en una llamada aparte del resumen a proposito: el resumen es lo primero
+   * que se pinta y no debe esperar por esto.
+   *
+   * Todo lo de aqui se eligio con un criterio: que al verlo se pueda HACER
+   * algo hoy. Un numero bonito que no cambia ninguna decision solo ocupa
+   * sitio.
+   *
+   * Lo economico se recorta segun el permiso, igual que en el resumen: no se
+   * manda y luego se esconde, porque la respuesta se ve en el navegador.
+   * ============================================================================
+   */
+  async getInsights(
+    tenantId: string,
+    branchId: string | null,
+    user?: RequestUser,
+  ) {
+    const hoy = new Date();
+    const inicioMes = startOfDay(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+    const finMes = endOfDay(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0));
+    const inicioMesPasado = startOfDay(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1));
+    const finMesPasado = endOfDay(new Date(hoy.getFullYear(), hoy.getMonth(), 0));
+
+    const sede = branchId ? ' AND a."branchId" = $2' : '';
+    const params: any[] = branchId ? [tenantId, branchId] : [tenantId];
+
+    /*
+     * AUSENCIAS. El porcentaje de citas que acabaron en "no vino", de las que
+     * ya pasaron. Si sube, los recordatorios no estan funcionando.
+     *
+     * Solo cuenta citas pasadas: una cita de la semana que viene todavia no
+     * puede ser una ausencia, y meterla en el denominador bajaria el
+     * porcentaje sin motivo.
+     */
+    const ausencias = await this.appointmentRepository.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE a.status = 'no_show')::int AS faltas,
+         COUNT(*)::int AS total
+       FROM appointments a
+       WHERE a."tenantId" = $1${sede}
+         AND a."startTime" >= $${params.length + 1}
+         AND a."startTime" <= $${params.length + 2}
+         AND a."startTime" < NOW()
+         AND a.status <> 'cancelled'`,
+      [...params, inicioMes, finMes],
+    );
+    const ausenciasMesPasado = await this.appointmentRepository.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE a.status = 'no_show')::int AS faltas,
+         COUNT(*)::int AS total
+       FROM appointments a
+       WHERE a."tenantId" = $1${sede}
+         AND a."startTime" >= $${params.length + 1}
+         AND a."startTime" <= $${params.length + 2}
+         AND a.status <> 'cancelled'`,
+      [...params, inicioMesPasado, finMesPasado],
+    );
+
+    const tasa = (f: any) =>
+      Number(f?.total) > 0 ? Math.round((Number(f.faltas) / Number(f.total)) * 100) : 0;
+
+    /*
+     * PACIENTES QUE NO VUELVEN. Los que tuvieron alguna cita pero ninguna en
+     * los ultimos seis meses y no tienen ninguna futura. Es una lista de
+     * llamadas, no una estadistica.
+     */
+    const dormidos = await this.patientRepository.query(
+      `SELECT COUNT(*)::int AS n FROM patients p
+       WHERE p."tenantId" = $1
+         AND EXISTS (SELECT 1 FROM appointments a WHERE a."patientId" = p.id)
+         AND NOT EXISTS (
+           SELECT 1 FROM appointments a
+           WHERE a."patientId" = p.id
+             AND a."startTime" > NOW() - INTERVAL '6 months'
+         )`,
+      [tenantId],
+    );
+
+    /*
+     * POR CONTACTAR. Planes de proxima cita sin hora acordada. Se separa lo
+     * que ya se paso de fecha: eso es un paciente al que se le olvido llamar.
+     */
+    const porContactar = await this.patientRepository.query(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE CAST(e."nextAppointmentDate" AS date) < CURRENT_DATE)::int AS vencidos
+       FROM clinical_history_entries e
+       LEFT JOIN appointments c ON c.id = e."plannedAppointmentId"
+       WHERE e."tenantId" = $1
+         AND e."nextAppointmentDate" IS NOT NULL
+         AND (c.id IS NULL OR c.status IN ('cancelled','no_show'))`,
+      [tenantId],
+    );
+
+    /*
+     * ALMACEN. Lo que esta en el minimo o por debajo, y los lotes que caducan
+     * en 30 dias. Son dos avisos que hoy solo se ven entrando a inventario.
+     */
+    const almacen = await this.patientRepository.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM products pr
+          WHERE pr."tenantId" = $1 AND pr."isActive" AND pr."minStock" > 0
+            AND COALESCE((
+              SELECT SUM(st.quantity) FROM product_stocks st
+              WHERE st."productId" = pr.id${branchId ? ' AND st."branchId" = $2' : ''}
+            ), 0) <= pr."minStock"
+         ) AS bajo_minimo,
+         (SELECT COUNT(*)::int FROM product_lots l
+          WHERE l."tenantId" = $1${branchId ? ' AND l."branchId" = $2' : ''}
+            AND l.quantity > 0 AND l."expiryDate" IS NOT NULL
+            AND l."expiryDate" <= CURRENT_DATE + INTERVAL '30 days'
+         ) AS por_caducar`,
+      params,
+    );
+
+    const operativo = {
+      noShowRateThisMonth: tasa(ausencias[0]),
+      noShowRateLastMonth: tasa(ausenciasMesPasado[0]),
+      noShowCountThisMonth: Number(ausencias[0]?.faltas ?? 0),
+      dormantPatients: Number(dormidos[0]?.n ?? 0),
+      pendingContacts: Number(porContactar[0]?.total ?? 0),
+      overduePendingContacts: Number(porContactar[0]?.vencidos ?? 0),
+      lowStockProducts: Number(almacen[0]?.bajo_minimo ?? 0),
+      expiringLots: Number(almacen[0]?.por_caducar ?? 0),
+    };
+
+    if (!isSettingAllowed(user, 'CanSeeDashboardStats')) {
+      return operativo;
+    }
+
+    /*
+     * POR COBRAR. El saldo de los presupuestos aceptados: dinero ya
+     * comprometido que todavia no entro. Se separa lo que lleva mas de 30
+     * dias, que es lo que hay que ir a cobrar.
+     *
+     * Solo presupuestos aceptados: uno pendiente o rechazado no es una deuda.
+     */
+    const porCobrar = await this.paymentRepository.query(
+      `SELECT
+         COALESCE(SUM(b."finalAmount" - b."paidAmount"), 0) AS total,
+         COALESCE(SUM(CASE WHEN b."creationDate" < NOW() - INTERVAL '30 days'
+                           THEN b."finalAmount" - b."paidAmount" ELSE 0 END), 0) AS vencido,
+         COUNT(*)::int AS presupuestos
+       FROM budgets b
+       WHERE b."tenantId" = $1${branchId ? ' AND b."branchId" = $2' : ''}
+         AND b.status IN ('approved','in_progress')
+         AND b."finalAmount" - b."paidAmount" > 0.009`,
+      params,
+    );
+
+    /*
+     * PROYECCION DEL MES. Al ritmo que va, cuanto cerraria el mes.
+     *
+     * Es una regla de tres sobre los dias transcurridos, nada mas: no predice
+     * nada, dice "si sigue asi". Se expone el ritmo diario para que se pueda
+     * juzgar, y no se proyecta el primer dia del mes, cuando un solo cobro
+     * daria una cifra absurda.
+     */
+    const cobradoMes = await this.paymentRepository.query(
+      `SELECT COALESCE(SUM(p.amount), 0) AS total FROM payments p
+       WHERE p."tenantId" = $1${branchId ? ' AND p."branchId" = $2' : ''}
+         AND p."paymentDate" >= $${params.length + 1}
+         AND p."paymentDate" <= $${params.length + 2}`,
+      [...params, inicioMes, finMes],
+    );
+
+    const ingresoMes = Number(cobradoMes[0]?.total ?? 0);
+    const diasTranscurridos = hoy.getDate();
+    const diasDelMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+    const ritmoDiario = diasTranscurridos > 0 ? ingresoMes / diasTranscurridos : 0;
+
+    return {
+      ...operativo,
+      receivableTotal: Number(Number(porCobrar[0]?.total ?? 0).toFixed(2)),
+      receivableOverdue: Number(Number(porCobrar[0]?.vencido ?? 0).toFixed(2)),
+      receivableBudgets: Number(porCobrar[0]?.presupuestos ?? 0),
+      monthIncomeSoFar: Number(ingresoMes.toFixed(2)),
+      dailyPace: Number(ritmoDiario.toFixed(2)),
+      // Nulo los dos primeros dias: con tan pocos datos la cifra enganaria.
+      projectedMonthIncome:
+        diasTranscurridos >= 3 ? Number((ritmoDiario * diasDelMes).toFixed(2)) : null,
+      daysElapsed: diasTranscurridos,
+      daysInMonth: diasDelMes,
+    };
+  }
+
   async getMonthlyRevenue(tenantId: string, branchId: string | null) {
     const last12Months = new Date();
     last12Months.setMonth(last12Months.getMonth() - 12);
