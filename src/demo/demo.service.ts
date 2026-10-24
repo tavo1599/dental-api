@@ -97,16 +97,63 @@ export class DemoService {
       }));
     }
 
-    // 3. Crear Citas en horario laboral (7am - 7pm)
-    for (let i = 0; i < 40; i++) {
-      const start = faker.date.between({ from: '2026-04-01', to: '2026-05-30' });
-      
-      // FORZAR HORARIOS: Entre 7:00 AM y 6:00 PM (Para que termine máximo a las 7:00 PM)
-      const hour = faker.number.int({ min: 7, max: 18 });
-      const minute = faker.helpers.arrayElement([0, 30]);
-      start.setHours(hour, minute, 0, 0);
+    /*
+     * 3. Crear Citas en horario laboral (7am - 7pm)
+     *
+     * SIN CRUCES. Antes se sorteaba dia y hora al azar para el MISMO doctor,
+     * asi que salian citas una encima de otra -incluso identicas, a la misma
+     * hora exacta-. Eso es imposible por la API, que lo valida, de modo que la
+     * demo mostraba un estado que el sistema no permite y la agenda aparecia
+     * con horas dobles.
+     *
+     * Ahora se sortean franjas SIN REPETIR: un dia mas una hora en punto, y
+     * cada cita dura una hora. Hay sitio de sobra -unos 60 dias por 12 horas-
+     * asi que no hace falta reintentar.
+     */
+    const DIAS_DEMO = 60;
+    const PRIMERA_HORA = 7;
+    const ULTIMA_HORA = 18; // termina como maximo a las 19:00
+    const inicioRango = new Date(2026, 3, 1); // 1 de abril de 2026
 
-      const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hora después
+    /*
+     * Las franjas que ESE doctor ya tiene ocupadas se descartan. Hace falta
+     * porque sembrar dos veces sobre la misma clinica -algo normal probando-
+     * volvia a sortear sobre las mismas franjas y salian citas encima de las
+     * de la primera vez.
+     */
+    const ocupadas = new Set<string>(
+      (
+        await manager.find(Appointment, {
+          where: { doctor: { id: doctor.id }, tenant: { id: tenantId } },
+          select: { id: true, startTime: true },
+        })
+      ).map((c) => {
+        const d = new Date(c.startTime);
+        return `${d.toDateString()}|${d.getHours()}`;
+      }),
+    );
+
+    const franjas: Array<{ dia: number; hora: number }> = [];
+    for (let dia = 0; dia < DIAS_DEMO; dia++) {
+      for (let hora = PRIMERA_HORA; hora <= ULTIMA_HORA; hora++) {
+        const d = new Date(inicioRango);
+        d.setDate(d.getDate() + dia);
+        d.setHours(hora, 0, 0, 0);
+        if (ocupadas.has(`${d.toDateString()}|${hora}`)) continue;
+        franjas.push({ dia, hora });
+      }
+    }
+
+    if (franjas.length === 0) {
+      return 'La clínica ya tiene la agenda llena de datos de prueba. Resetéala antes de volver a sembrar.';
+    }
+
+    const cuantas = Math.min(40, franjas.length);
+    for (const franja of faker.helpers.arrayElements(franjas, cuantas)) {
+      const start = new Date(inicioRango);
+      start.setDate(start.getDate() + franja.dia);
+      start.setHours(franja.hora, 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
 
       await this.apptRepo.save(this.apptRepo.create({
         startTime: start,
